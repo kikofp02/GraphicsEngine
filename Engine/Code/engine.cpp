@@ -472,6 +472,8 @@ void ProcessAssimpNode(const aiScene* scene, aiNode* node, Mesh* myMesh, u32 bas
 
 u32 LoadModel(App* app, const char* filename)
 {
+    OpenGLErrorGuard guard("AssimpLoad");
+
     const aiScene* scene = aiImportFile(filename,
         aiProcess_Triangulate |
         aiProcess_GenSmoothNormals |
@@ -521,9 +523,9 @@ u32 LoadModel(App* app, const char* filename)
         indexBufferSize += mesh.submeshes[i].indices.size() * sizeof(u32);
     }
 
-    glGenBuffers(1, &mesh.vertexBufferHandle);
+    GL_CHECK(glGenBuffers(1, &mesh.vertexBufferHandle));
     glBindBuffer(GL_ARRAY_BUFFER, mesh.vertexBufferHandle);
-    glBufferData(GL_ARRAY_BUFFER, vertexBufferSize, NULL, GL_STATIC_DRAW);
+    GL_CHECK(glBufferData(GL_ARRAY_BUFFER, vertexBufferSize, NULL, GL_STATIC_DRAW));
 
     glGenBuffers(1, &mesh.indexBufferHandle);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.indexBufferHandle);
@@ -568,7 +570,7 @@ GLuint FindVAO(App* app, Mesh& mesh, u32 submeshIndex, const Program& program) {
 
     GLuint vaoHandle = 0;
     glGenVertexArrays(1, &vaoHandle);
-    glBindVertexArray(vaoHandle);
+    GL_CHECK(glBindVertexArray(vaoHandle));
 
     if (app->enableDebugGroups) {
         std::string label = "VAO_Prog" + program.programName + "_Submesh" + std::to_string(submeshIndex);
@@ -582,7 +584,7 @@ GLuint FindVAO(App* app, Mesh& mesh, u32 submeshIndex, const Program& program) {
         bool linked = false;
         for (const auto& bufferAttr : submesh.vertexBufferLayout.attributes) {
             if (shaderAttr.location == bufferAttr.location) {
-                glEnableVertexAttribArray(shaderAttr.location);
+                GL_CHECK(glEnableVertexAttribArray(shaderAttr.location));
                 glVertexAttribPointer(
                     shaderAttr.location,
                     bufferAttr.componentCount,
@@ -697,6 +699,225 @@ void CreateSphere(App* app) {
     model.meshIdx = app->meshes.size() - 1;
     model.materialIdx.push_back(app->materials.size() - 1);
     app->models.push_back(model);
+
+    // Debug labels
+    if (app->enableDebugGroups) {
+        glObjectLabel(GL_BUFFER, mesh.vertexBufferHandle, -1, "Sphere_VBO");
+        glObjectLabel(GL_BUFFER, mesh.indexBufferHandle, -1, "Sphere_IBO");
+    }
+}
+
+void CreateCube(App* app) {
+
+    std::vector<float> vertices;
+    std::vector<u32> indices;
+
+    // Cube vertices (position + normal + texCoords)
+    const float cubeVertices[] = {
+        // Front face
+        -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f, 0.0f, // 0
+         0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f, 0.0f, // 1
+         0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f, 1.0f, // 2
+        -0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f, 1.0f, // 3
+
+        // Back face
+        -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 0.0f, // 4
+         0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 0.0f, // 5
+         0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 1.0f, // 6
+        -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 1.0f, // 7
+
+        // Top face
+        -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 0.0f, // 8
+         0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 0.0f, // 9
+         0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 1.0f, // 10
+        -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f, // 11
+
+        // Bottom face
+        -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 0.0f, // 12
+         0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 0.0f, // 13
+         0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 1.0f, // 14
+        -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 1.0f, // 15
+
+        // Right face
+         0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 0.0f, // 16
+         0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f, // 17
+         0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 1.0f, // 18
+         0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 1.0f, // 19
+
+         // Left face
+         -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 0.0f, // 20
+         -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 0.0f, // 21
+         -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 1.0f, // 22
+         -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 1.0f  // 23
+    };
+
+    const u32 cubeIndices[] = {
+        // Front
+        0, 1, 2, 0, 2, 3,
+        // Back
+        5, 4, 7, 5, 7, 6,
+        // Top
+        8, 9, 10, 8, 10, 11,
+        // Bottom
+        13, 12, 15, 13, 15, 14,
+        // Right
+        16, 17, 18, 16, 18, 19,
+        // Left
+        21, 20, 23, 21, 23, 22
+    };
+
+    // Copy data to vectors
+    vertices.assign(cubeVertices, cubeVertices + sizeof(cubeVertices) / sizeof(float));
+    indices.assign(cubeIndices, cubeIndices + sizeof(cubeIndices) / sizeof(u32));
+
+    // Create vertex buffer layout
+    VertexBufferLayout vertexBufferLayout = {};
+    vertexBufferLayout.attributes.push_back({ 0, 3, 0 }); // Position
+    vertexBufferLayout.attributes.push_back({ 1, 3, 3 * sizeof(float) }); // Normal
+    vertexBufferLayout.attributes.push_back({ 2, 2, 6 * sizeof(float) }); // TexCoord
+    vertexBufferLayout.stride = 8 * sizeof(float);
+
+    // Create submesh
+    Submesh submesh = {};
+    submesh.vertexBufferLayout = vertexBufferLayout;
+    submesh.vertices = vertices;
+    submesh.indices = indices;
+
+    // Create mesh
+    Mesh mesh = {};
+    mesh.submeshes.push_back(submesh);
+
+    // Create GPU buffers
+    glGenBuffers(1, &mesh.vertexBufferHandle);
+    glBindBuffer(GL_ARRAY_BUFFER, mesh.vertexBufferHandle);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
+
+    glGenBuffers(1, &mesh.indexBufferHandle);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.indexBufferHandle);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(u32), indices.data(), GL_STATIC_DRAW);
+
+    // Add to app
+    app->meshes.push_back(mesh);
+
+    // Create default material
+    Material material = {};
+    material.name = "DefaultCubeMaterial";
+    material.albedo = glm::vec3(1.0f, 1.0f, 1.0f);
+    material.albedoTextureIdx = app->whiteTexIdx;
+    app->materials.push_back(material);
+
+    // Create model
+    Model model = {};
+    model.meshIdx = app->meshes.size() - 1;
+    model.materialIdx.push_back(app->materials.size() - 1);
+    app->models.push_back(model);
+
+    // Debug labels
+    if (app->enableDebugGroups) {
+        glObjectLabel(GL_BUFFER, mesh.vertexBufferHandle, -1, "Cube_VBO");
+        glObjectLabel(GL_BUFFER, mesh.indexBufferHandle, -1, "Cube_IBO");
+    }
+}
+
+void CreatePlane(App* app) {
+
+    std::vector<float> vertices;
+    std::vector<u32> indices;
+
+    // Define vertices (position + normal + texCoords)
+    const float planeSize = 1.0f;
+    const float positions[] = {
+        -planeSize, 0.0f, -planeSize,  // 0
+         planeSize, 0.0f, -planeSize,  // 1
+         planeSize, 0.0f,  planeSize,  // 2
+        -planeSize, 0.0f,  planeSize   // 3
+    };
+
+    const float normals[] = {
+        0.0f, 1.0f, 0.0f,
+        0.0f, 1.0f, 0.0f,
+        0.0f, 1.0f, 0.0f,
+        0.0f, 1.0f, 0.0f
+    };
+
+    const float texCoords[] = {
+        0.0f, 0.0f,
+        1.0f, 0.0f,
+        1.0f, 1.0f,
+        0.0f, 1.0f
+    };
+
+    // Combine into interleaved vertex data
+    for (int i = 0; i < 4; ++i) {
+        // Position
+        vertices.push_back(positions[i * 3]);
+        vertices.push_back(positions[i * 3 + 1]);
+        vertices.push_back(positions[i * 3 + 2]);
+
+        // Normal
+        vertices.push_back(normals[i * 3]);
+        vertices.push_back(normals[i * 3 + 1]);
+        vertices.push_back(normals[i * 3 + 2]);
+
+        // TexCoord
+        vertices.push_back(texCoords[i * 2]);
+        vertices.push_back(texCoords[i * 2 + 1]);
+    }
+
+    // Define indices
+    const u32 planeIndices[] = {
+        0, 1, 2,
+        0, 2, 3
+    };
+    indices.assign(planeIndices, planeIndices + 6);
+
+    // Create vertex buffer layout
+    VertexBufferLayout vertexBufferLayout = {};
+    vertexBufferLayout.attributes.push_back({ 0, 3, 0 }); // Position
+    vertexBufferLayout.attributes.push_back({ 1, 3, 3 * sizeof(float) }); // Normal
+    vertexBufferLayout.attributes.push_back({ 2, 2, 6 * sizeof(float) }); // TexCoord
+    vertexBufferLayout.stride = 8 * sizeof(float);
+
+    // Create submesh
+    Submesh submesh = {};
+    submesh.vertexBufferLayout = vertexBufferLayout;
+    submesh.vertices = vertices;
+    submesh.indices = indices;
+
+    // Create mesh
+    Mesh mesh = {};
+    mesh.submeshes.push_back(submesh);
+
+    // Create GPU buffers
+    glGenBuffers(1, &mesh.vertexBufferHandle);
+    glBindBuffer(GL_ARRAY_BUFFER, mesh.vertexBufferHandle);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
+
+    glGenBuffers(1, &mesh.indexBufferHandle);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.indexBufferHandle);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(u32), indices.data(), GL_STATIC_DRAW);
+
+    // Add to app
+    app->meshes.push_back(mesh);
+
+    // Create default material
+    Material material = {};
+    material.name = "DefaultPlaneMaterial";
+    material.albedo = glm::vec3(0.8f, 0.8f, 0.8f);
+    material.albedoTextureIdx = app->whiteTexIdx;
+    app->materials.push_back(material);
+
+    // Create model
+    Model model = {};
+    model.meshIdx = app->meshes.size() - 1;
+    model.materialIdx.push_back(app->materials.size() - 1);
+    app->models.push_back(model);
+
+    // Debug labels
+    if (app->enableDebugGroups) {
+        glObjectLabel(GL_BUFFER, mesh.vertexBufferHandle, -1, "Plane_VBO");
+        glObjectLabel(GL_BUFFER, mesh.indexBufferHandle, -1, "Plane_IBO");
+    }
 }
 
 void InitTexturedQuad(App* app) {
@@ -749,10 +970,6 @@ void InitTexturedQuad(App* app) {
 
     // - textures
     app->diceTexIdx = LoadTexture2D(app, "dice.png");
-    app->whiteTexIdx = LoadTexture2D(app, "color_white.png");
-    app->blackTexIdx = LoadTexture2D(app, "color_black.png");
-    app->normalTexIdx = LoadTexture2D(app, "color_normal.png");
-    app->magentaTexIdx = LoadTexture2D(app, "color_magenta.png");
 
     if (app->enableDebugGroups) {
         glObjectLabel(GL_VERTEX_ARRAY, app->vao, -1, "MainVAO");
@@ -763,6 +980,10 @@ void InitTexturedQuad(App* app) {
 
 void InitTexturedMesh(App* app)
 {
+    /*CreatePlane(app);
+    CreateSphere(app);
+    CreateCube(app);*/
+
     Mesh mesh = {};
     Submesh submesh = {};
 
@@ -858,6 +1079,11 @@ void Init(App* app)
     default:
         break;
     }
+
+    app->whiteTexIdx = LoadTexture2D(app, "color_white.png");
+    app->blackTexIdx = LoadTexture2D(app, "color_black.png");
+    app->normalTexIdx = LoadTexture2D(app, "color_normal.png");
+    app->magentaTexIdx = LoadTexture2D(app, "color_magenta.png");
 
     if (app->enableDebugGroups) {
         for (size_t i = 0; i < app->textures.size(); ++i) {
@@ -1006,7 +1232,7 @@ void Render(App* app)
                     GLuint vao = FindVAO(app, mesh, i, texturedMeshProgram);
                     glBindVertexArray(vao);
 
-                    u32 materialIdx = i < model.materialIdx.size() ? model.materialIdx[i] : 0;
+                    u32 materialIdx = (i < model.materialIdx.size()) ? model.materialIdx[i] : 0;
                     Material& material = app->materials[materialIdx];
                     u32 textureIdx = material.albedoTextureIdx != UINT32_MAX
                         ? material.albedoTextureIdx
@@ -1014,7 +1240,7 @@ void Render(App* app)
 
                     glActiveTexture(GL_TEXTURE0);
                     glBindTexture(GL_TEXTURE_2D, app->textures[textureIdx].handle);
-                    glUniform1i(app->texturedMeshProgram_uTexture, 0);
+                    GL_CHECK(glUniform1i(app->texturedMeshProgram_uTexture, 0));
 
                     glDrawElements(GL_TRIANGLES, submesh.indices.size(),
                         GL_UNSIGNED_INT, (void*)(u64)submesh.indexOffset);
