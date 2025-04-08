@@ -47,7 +47,8 @@
     <ClInclude Include="ThirdParty\stb\stb_image.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="WorkingDir\shaders.glsl" />
+    <None Include="WorkingDir\renderModelAlbedo.glsl" />
+    <None Include="WorkingDir\texturedGeo.glsl" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>

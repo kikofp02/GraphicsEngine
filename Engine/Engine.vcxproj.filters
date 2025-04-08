@@ -94,7 +94,10 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="WorkingDir\shaders.glsl">
+    <None Include="WorkingDir\renderModelAlbedo.glsl">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="WorkingDir\texturedGeo.glsl">
       <Filter>Shaders</Filter>
     </None>
   </ItemGroup>

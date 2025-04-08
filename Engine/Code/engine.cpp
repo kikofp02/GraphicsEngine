@@ -9,6 +9,97 @@
 #include <imgui.h>
 #include <stb_image.h>
 #include <stb_image_write.h>
+#include <filesystem>
+
+void CheckGLError(const char* stmt, const char* file, int line)
+{
+    GLenum err;
+    while ((err = glGetError()) != GL_NO_ERROR)
+    {
+        const char* errorStr;
+        switch (err) {
+        case GL_INVALID_ENUM:      errorStr = "GL_INVALID_ENUM"; break;
+        case GL_INVALID_VALUE:     errorStr = "GL_INVALID_VALUE"; break;
+        case GL_INVALID_OPERATION: errorStr = "GL_INVALID_OPERATION"; break;
+        case GL_OUT_OF_MEMORY:     errorStr = "GL_OUT_OF_MEMORY"; break;
+        case GL_INVALID_FRAMEBUFFER_OPERATION: errorStr = "GL_INVALID_FRAMEBUFFER_OPERATION"; break;
+        default:                  errorStr = "UNKNOWN_ERROR"; break;
+        }
+        ELOG("OpenGL error 0x%04X (%s) at %s:%i - for %s",
+            err, errorStr, file, line, stmt);
+    }
+}
+
+// Kronos extension
+void APIENTRY OnGLError(GLenum source, GLenum type, GLuint id,
+    GLenum severity, GLsizei length,
+    const GLchar* message, const void* userParam)
+{
+    if (severity == GL_DEBUG_SEVERITY_NOTIFICATION)
+        return;
+
+    App* app = (App*)userParam;
+
+    ELOG("OpenGL Debug Message [%d]: %s", id, message);
+
+    const char* sourceStr = "";
+    switch (source) {
+    case GL_DEBUG_SOURCE_API:             sourceStr = "API"; break;
+    case GL_DEBUG_SOURCE_WINDOW_SYSTEM:   sourceStr = "Window System"; break;
+    case GL_DEBUG_SOURCE_SHADER_COMPILER: sourceStr = "Shader Compiler"; break;
+    case GL_DEBUG_SOURCE_THIRD_PARTY:     sourceStr = "Third Party"; break;
+    case GL_DEBUG_SOURCE_APPLICATION:     sourceStr = "Application"; break;
+    case GL_DEBUG_SOURCE_OTHER:           sourceStr = "Other"; break;
+    }
+
+    const char* typeStr = "";
+    switch (type) {
+    case GL_DEBUG_TYPE_ERROR:               typeStr = "Error"; break;
+    case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: typeStr = "Deprecated"; break;
+    case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:  typeStr = "Undefined Behavior"; break;
+    case GL_DEBUG_TYPE_PORTABILITY:         typeStr = "Portability"; break;
+    case GL_DEBUG_TYPE_PERFORMANCE:         typeStr = "Performance"; break;
+    case GL_DEBUG_TYPE_MARKER:              typeStr = "Marker"; break;
+    case GL_DEBUG_TYPE_PUSH_GROUP:          typeStr = "Push Group"; break;
+    case GL_DEBUG_TYPE_POP_GROUP:           typeStr = "Pop Group"; break;
+    case GL_DEBUG_TYPE_OTHER:               typeStr = "Other"; break;
+    }
+
+    const char* severityStr = "";
+    switch (severity) {
+    case GL_DEBUG_SEVERITY_HIGH:         severityStr = "High"; break;
+    case GL_DEBUG_SEVERITY_MEDIUM:       severityStr = "Medium"; break;
+    case GL_DEBUG_SEVERITY_LOW:          severityStr = "Low"; break;
+    case GL_DEBUG_SEVERITY_NOTIFICATION: severityStr = "Notification"; break;
+    }
+
+    ELOG("  Source: %s, Type: %s, Severity: %s", sourceStr, typeStr, severityStr);
+
+#ifdef _DEBUG
+    if (severity == GL_DEBUG_SEVERITY_HIGH)
+        __debugbreak();
+#endif
+}
+
+void InitDebugCallback(App* app)
+{
+    // Check for OpenGL 4.3+ (where KHR_debug became core)
+    if (GLVersion.major > 4 || (GLVersion.major == 4 && GLVersion.minor >= 3))
+    {
+        glEnable(GL_DEBUG_OUTPUT);
+        glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+        glDebugMessageCallback(OnGLError, app);
+
+        // Enable only medium/high severity messages
+        glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE,
+            GL_DEBUG_SEVERITY_MEDIUM,
+            0, nullptr, GL_TRUE);
+    }
+    else
+    {
+        ELOG("GL_KHR_debug not available (Requires OpenGL 4.3+). Using basic error checking.");
+    }
+}
 
 GLuint CreateProgramFromSource(String programSource, const char* shaderName)
 {
@@ -68,10 +159,11 @@ GLuint CreateProgramFromSource(String programSource, const char* shaderName)
         ELOG("glCompileShader() failed with fragment shader %s\nReported message:\n%s\n", shaderName, infoLogBuffer);
     }
 
-    GLuint programHandle = glCreateProgram();
-    glAttachShader(programHandle, vshader);
+    GLuint programHandle;
+    GL_CHECK(programHandle = glCreateProgram());
+    GL_CHECK(glAttachShader(programHandle, vshader));
     glAttachShader(programHandle, fshader);
-    glLinkProgram(programHandle);
+    GL_CHECK(glLinkProgram(programHandle));
     glGetProgramiv(programHandle, GL_LINK_STATUS, &success);
     if (!success)
     {
@@ -98,8 +190,8 @@ u32 LoadProgram(App* app, const char* filepath, const char* programName)
     program.filepath = filepath;
     program.programName = programName;
     program.lastWriteTimestamp = GetFileLastWriteTimestamp(filepath);
-    app->programs.push_back(program);
 
+    app->programs.push_back(program);
     return app->programs.size() - 1;
 }
 
@@ -126,6 +218,8 @@ void FreeImage(Image image)
 
 GLuint CreateTexture2DFromImage(Image image)
 {
+    OpenGLErrorGuard guard("CreateTexture");
+
     GLenum internalFormat = GL_RGB8;
     GLenum dataFormat     = GL_RGB;
     GLenum dataType       = GL_UNSIGNED_BYTE;
@@ -138,16 +232,16 @@ GLuint CreateTexture2DFromImage(Image image)
     }
 
     GLuint texHandle;
-    glGenTextures(1, &texHandle);
-    glBindTexture(GL_TEXTURE_2D, texHandle);
-    glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, image.size.x, image.size.y, 0, dataFormat, dataType, image.pixels);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glGenerateMipmap(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, 0);
+    GL_CHECK(glGenTextures(1, &texHandle));
+    GL_CHECK(glBindTexture(GL_TEXTURE_2D, texHandle));
+    GL_CHECK(glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, image.size.x, image.size.y, 0, dataFormat, dataType, image.pixels));
+    GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR));
+    GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+    GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE));
+    GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+    GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+    GL_CHECK(glGenerateMipmap(GL_TEXTURE_2D));
+    GL_CHECK(glBindTexture(GL_TEXTURE_2D, 0));
 
     return texHandle;
 }
@@ -180,6 +274,9 @@ u32 LoadTexture2D(App* app, const char* filepath)
 
 void Init(App* app)
 {
+    InitDebugCallback(app);
+
+    // OpenGl info for imgui panel
     app->oglInfo.glVersion = std::string(reinterpret_cast<const char*>(glGetString(GL_VERSION)));
     app->oglInfo.glRenderer = std::string(reinterpret_cast<const char*>(glGetString(GL_RENDERER)));
     app->oglInfo.glVendor = std::string(reinterpret_cast<const char*>(glGetString(GL_VENDOR)));
@@ -215,31 +312,31 @@ void Init(App* app)
 
     // - element/index buffers
     //Geometry
-    glGenBuffers(1, &app->embeddedVertices);
-    glBindBuffer(GL_ARRAY_BUFFER, app->embeddedVertices);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    GL_CHECK(glGenBuffers(1, &app->embeddedVertices));
+    GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, app->embeddedVertices));
+    GL_CHECK(glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW));
+    GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, 0));
 
-    glGenBuffers(1, &app->embeddedElements);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, app->embeddedElements);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    GL_CHECK(glGenBuffers(1, &app->embeddedElements));
+    GL_CHECK(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, app->embeddedElements));
+    GL_CHECK(glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW));
+    GL_CHECK(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0));
 
     // - vaos
     //Attribute state
-    glGenVertexArrays(1, &app->vao);
-    glBindVertexArray(app->vao);
-    glBindBuffer(GL_ARRAY_BUFFER, app->embeddedVertices);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(VertexV3V2), (void*)0);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(VertexV3V2), (void*)12);
-    glEnableVertexAttribArray(1);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, app->embeddedElements);
-    glBindVertexArray(0);
+    GL_CHECK(glGenVertexArrays(1, &app->vao));
+    GL_CHECK(glBindVertexArray(app->vao));
+    GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, app->embeddedVertices));
+    GL_CHECK(glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(VertexV3V2), (void*)0));
+    GL_CHECK(glEnableVertexAttribArray(0));
+    GL_CHECK(glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(VertexV3V2), (void*)12));
+    GL_CHECK(glEnableVertexAttribArray(1));
+    GL_CHECK(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, app->embeddedElements));
+    GL_CHECK(glBindVertexArray(0));
 
 
     // - programs (and retrieve uniform indices)
-    app->texturedGeometryProgramIdx = LoadProgram(app, "shader.glsl", "TEXTURED_GEOMETRY");
+    app->texturedGeometryProgramIdx = LoadProgram(app, "texturedGeo.glsl", "TEXTURED_GEOMETRY");
 
     Program& texturedGeometryProgram = app->programs[app->texturedGeometryProgramIdx];
 
@@ -251,53 +348,109 @@ void Init(App* app)
     app->blackTexIdx = LoadTexture2D(app, "color_black.png");
     app->normalTexIdx = LoadTexture2D(app, "color_normal.png");
     app->magentaTexIdx = LoadTexture2D(app, "color_magenta.png");
+
+    if (app->enableDebugGroups) {
+        glObjectLabel(GL_VERTEX_ARRAY, app->vao, -1, "MainVAO");
+        glObjectLabel(GL_BUFFER, app->embeddedVertices, -1, "QuadVertices");
+        glObjectLabel(GL_BUFFER, app->embeddedElements, -1, "QuadIndices");
+
+        for (size_t i = 0; i < app->textures.size(); ++i) {
+            glObjectLabel(GL_TEXTURE, app->textures[i].handle, -1,
+                app->textures[i].filepath.c_str());
+        }
+    }
 }
 
 void Gui(App* app)
 {
     ImGui::Begin("Info");
-    ImGui::Text("FPS: %f", 1.0f/app->deltaTime);
+    ImGui::Text("FPS: %f", 1.0f / app->deltaTime);
 
-    ImGui::Text("OpenGL Version:");
-    ImGui::Text(" -> %s", app->oglInfo.glVersion.c_str());
-
-    ImGui::Text("OpenGL Renderer:");
-    ImGui::Text(" -> %s", app->oglInfo.glRenderer.c_str());
-
-    ImGui::Text("OpenGL Vendor:");
-    ImGui::Text(" -> %s", app->oglInfo.glVendor.c_str());
-
-    ImGui::Text("OpenGL GLSL Version:");
-    ImGui::Text(" -> %s", app->oglInfo.glslVersion.c_str());
-
-    ImGui::Text("OpenGL Extensions:");
-    for (size_t i = 0; i < app->oglInfo.glExtensions.size(); i++)
+    if (ImGui::CollapsingHeader("OpenGL Information", ImGuiTreeNodeFlags_DefaultOpen))
     {
-        ImGui::Text(" -> %s", app->oglInfo.glExtensions[i].c_str());
-    }
+        if (ImGui::TreeNodeEx("Version Information", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            ImGui::Text("OpenGL Version:");
+            ImGui::Text(" -> %s", app->oglInfo.glVersion.c_str());
 
+            ImGui::Text("OpenGL Renderer:");
+            ImGui::Text(" -> %s", app->oglInfo.glRenderer.c_str());
+
+            ImGui::Text("OpenGL Vendor:");
+            ImGui::Text(" -> %s", app->oglInfo.glVendor.c_str());
+
+            ImGui::Text("OpenGL GLSL Version:");
+            ImGui::Text(" -> %s", app->oglInfo.glslVersion.c_str());
+            ImGui::TreePop();
+        }
+
+        // For extensions with a filter (optional)
+        static ImGuiTextFilter extensionsFilter;
+        char extensionsLabel[128];
+        snprintf(extensionsLabel, 128, "Extensions (%d)###Extensions", (int)app->oglInfo.glExtensions.size());
+
+        if (ImGui::TreeNodeEx(extensionsLabel, ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            extensionsFilter.Draw("Filter");
+            ImGui::BeginChild("ExtensionsScrolling", ImVec2(0, 200), true);
+            for (size_t i = 0; i < app->oglInfo.glExtensions.size(); i++)
+            {
+                if (extensionsFilter.PassFilter(app->oglInfo.glExtensions[i].c_str()))
+                {
+                    ImGui::Text(" -> %s", app->oglInfo.glExtensions[i].c_str());
+                }
+            }
+            ImGui::EndChild();
+            ImGui::TreePop();
+        }
+    }
     ImGui::End();
 }
 
 void Update(App* app)
 {
+    //TODO_K: optimizar esto pa que no corra cada frame tos los programs
+    for (Program& program : app->programs)
+    {
+        u64 currentTimestamp = GetFileLastWriteTimestamp(program.filepath.c_str());
+        if (currentTimestamp > program.lastWriteTimestamp)
+        {
+            glDeleteProgram(program.handle);
+            String programSource = ReadTextFile(program.filepath.c_str());
+            program.handle = CreateProgramFromSource(programSource, program.programName.c_str());
+            program.lastWriteTimestamp = currentTimestamp;
+
+            ELOG("Reload shader: %s", program.filepath.c_str());
+
+            //TODO_K: taria guapo poner que si no funca el program cargue uno default
+            /*if (!program.handle) {
+                program.handle = CreateProgramFromSource(defaultShaderSource, "DEFAULT");
+            }*/
+        }
+    }
+
     // You can handle app->input keyboard/mouse here
 }
 
 void Render(App* app)
 {
+    OpenGLErrorGuard renderGuard("MainRender");
+
+    if (app->enableDebugGroups) glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 0, -1, "MainRenderPass");
+
     switch (app->mode)
     {
         case Mode_TexturedQuad:
         {
+            if (app->enableDebugGroups) glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "TexturedQuad");
             // TODO: Draw your textured quad here!
             
             // - clear the framebuffer
-            glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            GL_CHECK(glClearColor(0.1f, 0.1f, 0.1f, 1.0f));
+            GL_CHECK(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
 
             // - set the viewport
-            glViewport(0, 0, app->displaySize.x, app->displaySize.y);
+            GL_CHECK(glViewport(0, 0, app->displaySize.x, app->displaySize.y));
 
             // - set the blending state
             // - bind the texture into unit 0
@@ -305,26 +458,33 @@ void Render(App* app)
             //   (...and make its texture sample from unit 0)
             // - bind the vao
             Program& programTexturedGeometry = app->programs[app->texturedGeometryProgramIdx];
-            glUseProgram(programTexturedGeometry.handle);
-            glBindVertexArray(app->vao);
+            GL_CHECK(glUseProgram(programTexturedGeometry.handle));
+            GL_CHECK(glBindVertexArray(app->vao));
 
-            glEnable(GL_BLEND);
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            GL_CHECK(glEnable(GL_BLEND));
+            GL_CHECK(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
 
-            glUniform1i(app->programUniformTexture, 0);
-            glActiveTexture(GL_TEXTURE0);
+            GL_CHECK(glUniform1i(app->programUniformTexture, 0));
+            GL_CHECK(glActiveTexture(GL_TEXTURE0));
             GLuint textureHandle = app->textures[app->diceTexIdx].handle;
-            glBindTexture(GL_TEXTURE_2D, textureHandle);
+            if (textureHandle == 0) {
+                ELOG("Invalid texture handle!");
+                return;
+            }
+            GL_CHECK(glBindTexture(GL_TEXTURE_2D, textureHandle));
 
             // - glDrawElements() !!!
-            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
+            GL_CHECK(glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0));
 
-            glBindVertexArray(0);
-            glUseProgram(0);
+            GL_CHECK(glBindVertexArray(0));
+            GL_CHECK(glUseProgram(0));
+
+            if (app->enableDebugGroups) glPopDebugGroup();
         }
         break;
+
+        if (app->enableDebugGroups) glPopDebugGroup();
 
         default:;
     }
 }
-

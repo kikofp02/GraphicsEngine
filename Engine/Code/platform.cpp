@@ -369,7 +369,10 @@ String ReadTextFile(const char* filepath)
     }
     else
     {
+        // Enhanced error reporting
+        int error = errno;
         ELOG("fopen() failed reading file %s", filepath);
+        ELOG("Error %d: %s", error, strerror(error));
     }
 
     return fileText;
@@ -404,6 +407,7 @@ void LogString(const char* str)
 #ifdef _WIN32
     OutputDebugStringA(str);
     OutputDebugStringA("\n");
+    fprintf(stderr, "%s\n", str);
 #else
     fprintf(stderr, "%s\n", str);
 #endif
