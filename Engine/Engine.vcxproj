@@ -47,7 +47,7 @@
     <ClInclude Include="ThirdParty\stb\stb_image.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="WorkingDir\renderModelAlbedo.glsl" />
+    <None Include="WorkingDir\texturedMesh.glsl" />
     <None Include="WorkingDir\texturedGeo.glsl" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

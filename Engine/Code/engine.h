@@ -39,6 +39,12 @@ struct VertexShaderLayout
     std::vector<VertexShaderAttribute> attributes;
 };
 
+struct VAO
+{
+    GLuint handle;
+    GLuint programHandle;
+};
+
 struct Submesh
 {
     VertexBufferLayout vertexBufferLayout;
@@ -46,6 +52,7 @@ struct Submesh
     std::vector<u32> indices;
     u32 vertexOffset;
     u32 indexOffset;
+    std::vector<VAO> vaos;
 };
 
 struct Mesh
@@ -69,6 +76,25 @@ struct Texture
     std::string filepath;
 };
 
+struct Material
+{
+    std::string name;
+    vec3        albedo;
+    vec3        emissive;
+    f32         smoothness;
+    u32         albedoTextureIdx;
+    u32         emissiveTextureIdx;
+    u32         specularTextureIdx;
+    u32         normalsTextureIdx;
+    u32         bumpTextureIdx;
+};
+
+struct Model
+{
+    u32 meshIdx;
+    std::vector<u32> materialIdx;
+};
+
 struct Program
 {
     GLuint             handle;
@@ -81,6 +107,7 @@ struct Program
 enum Mode
 {
     Mode_TexturedQuad,
+    Mode_TexturedMesh,
     Mode_Count
 };
 
@@ -110,12 +137,17 @@ struct App
 
     ivec2 displaySize;
 
-    std::vector<Texture>  textures;
-    std::vector<Program>  programs;
+    std::vector<Texture>    textures;
+    std::vector<Material>   materials;
+    std::vector<Mesh>       meshes;
+    std::vector<Model>      models;
+    std::vector<Program>    programs;
 
     // program indices
     u32 texturedGeometryProgramIdx;
     u32 texturedMeshProgramIdx;
+
+    u32 texturedMeshProgram_uTexture;
     
     // texture indices
     u32 diceTexIdx;
