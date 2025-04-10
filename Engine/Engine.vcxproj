@@ -47,8 +47,7 @@
     <ClInclude Include="ThirdParty\stb\stb_image.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="WorkingDir\texturedMesh.glsl" />
-    <None Include="WorkingDir\texturedGeo.glsl" />
+    <None Include="WorkingDir\shaders.glsl" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>

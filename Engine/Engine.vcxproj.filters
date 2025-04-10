@@ -94,10 +94,7 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="WorkingDir\texturedMesh.glsl">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="WorkingDir\texturedGeo.glsl">
+    <None Include="WorkingDir\shaders.glsl">
       <Filter>Shaders</Filter>
     </None>
   </ItemGroup>

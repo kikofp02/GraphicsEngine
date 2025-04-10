@@ -964,7 +964,7 @@ void InitTexturedQuad(App* app) {
     GL_CHECK(glBindVertexArray(0));
 
     // - programs (and retrieve uniform indices)
-    app->texturedGeometryProgramIdx = LoadProgram(app, "texturedGeo.glsl", "TEXTURED_GEOMETRY");
+    app->texturedGeometryProgramIdx = LoadProgram(app, "shaders.glsl", "TEXTURED_GEOMETRY");
     Program& texturedGeometryProgram = app->programs[app->texturedGeometryProgramIdx];
     app->programUniformTexture = glGetUniformLocation(texturedGeometryProgram.handle, "uTexture");
 
@@ -1026,7 +1026,7 @@ void InitTexturedMesh(App* app)
     app->meshes.push_back(mesh);
 
     // Load shader program (matches PDF page 5)
-    app->texturedMeshProgramIdx = LoadProgram(app, "texturedMesh.glsl", "TEXTURED_MESH");
+    app->texturedMeshProgramIdx = LoadProgram(app, "shaders.glsl", "TEXTURED_MESH");
     Program& texturedMeshProgram = app->programs[app->texturedMeshProgramIdx];
     app->texturedMeshProgram_uTexture = glGetUniformLocation(texturedMeshProgram.handle, "uTexture");
 
@@ -1066,19 +1066,10 @@ void Init(App* app)
     // TODO: Initialize your resources here!
     app->mode = Mode_TexturedMesh;
     
-    switch (app->mode)
-    {
-    case Mode_TexturedQuad:
-        InitTexturedQuad(app);
-        break;
-    case Mode_TexturedMesh:
-        InitTexturedMesh(app);
-        break;
-    case Mode_Count:
-        break;
-    default:
-        break;
-    }
+    InitTexturedQuad(app);
+    InitTexturedMesh(app);
+
+    GL_CHECK(glClearColor(0.1f, 0.1f, 0.1f, 1.0f));
 
     app->whiteTexIdx = LoadTexture2D(app, "color_white.png");
     app->blackTexIdx = LoadTexture2D(app, "color_black.png");
@@ -1163,6 +1154,21 @@ void Update(App* app)
         }
     }
 
+    if (app->input.keys[Key::K_2] == BUTTON_RELEASE) {
+        switch (app->mode)
+        {
+        case Mode_TexturedQuad:
+            app->mode = Mode_TexturedMesh;
+            break;
+        case Mode_TexturedMesh:
+            app->mode = Mode_TexturedQuad;
+            break;
+        case Mode_Count:
+            break;
+        default:
+            break;
+        }
+    }
     // You can handle app->input keyboard/mouse here
 }
 
@@ -1172,6 +1178,13 @@ void Render(App* app)
 
     if (app->enableDebugGroups) glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 0, -1, "MainRenderPass");
 
+    // - clear the framebuffer
+    
+    GL_CHECK(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
+
+    // - set the viewport
+    GL_CHECK(glViewport(0, 0, app->displaySize.x, app->displaySize.y));
+
     switch (app->mode)
     {
         case Mode_TexturedQuad:
@@ -1179,12 +1192,7 @@ void Render(App* app)
             if (app->enableDebugGroups) glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "TexturedQuad");
             // TODO: Draw your textured quad here!
             
-            // - clear the framebuffer
-            GL_CHECK(glClearColor(0.1f, 0.1f, 0.1f, 1.0f));
-            GL_CHECK(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
-
-            // - set the viewport
-            GL_CHECK(glViewport(0, 0, app->displaySize.x, app->displaySize.y));
+            
 
             // - set the blending state
             // - bind the texture into unit 0
