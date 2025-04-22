@@ -16,6 +16,9 @@
     <Filter Include="Stb">
       <UniqueIdentifier>{0ac2ff0f-5f18-480a-8bd6-6aa7428166bb}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Engine\Utils">
+      <UniqueIdentifier>{966426fd-f84c-4de8-b97d-3adf40ddda6c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ThirdParty\imgui-docking\imgui.cpp">
@@ -50,6 +53,9 @@
     </ClCompile>
     <ClCompile Include="ThirdParty\stb\stb.cpp">
       <Filter>Stb</Filter>
+    </ClCompile>
+    <ClCompile Include="Code\model.h">
+      <Filter>Engine\Utils</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -91,6 +97,15 @@
     </ClInclude>
     <ClInclude Include="ThirdParty\stb\stb_image.h">
       <Filter>Stb</Filter>
+    </ClInclude>
+    <ClInclude Include="Code\camera.h">
+      <Filter>Engine\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="Code\shader.h">
+      <Filter>Engine\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="Code\gl_error.h">
+      <Filter>Engine\Utils</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

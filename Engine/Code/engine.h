@@ -5,6 +5,9 @@
 #pragma once
 
 #include "platform.h"
+#include "model.h"
+#include "shader.h"
+#include "camera.h"
 #include <glad/glad.h>
 
 typedef glm::vec2  vec2;
@@ -14,54 +17,6 @@ typedef glm::ivec2 ivec2;
 typedef glm::ivec3 ivec3;
 typedef glm::ivec4 ivec4;
 
-// BUFFER structs
-struct VertexBufferAttribute
-{
-    u8 location;
-    u8 componentCount;
-    u8 offset;
-};
-
-struct VertexBufferLayout
-{
-    std::vector<VertexBufferAttribute> attributes;
-    u8 stride;
-};
-
-struct VertexShaderAttribute
-{
-    u8 location;
-    u8 componentCount;
-};
-
-struct VertexShaderLayout
-{
-    std::vector<VertexShaderAttribute> attributes;
-};
-
-struct VAO
-{
-    GLuint handle;
-    GLuint programHandle;
-};
-
-struct Submesh
-{
-    VertexBufferLayout vertexBufferLayout;
-    std::vector<float> vertices;
-    std::vector<u32> indices;
-    u32 vertexOffset;
-    u32 indexOffset;
-    std::vector<VAO> vaos;
-};
-
-struct Mesh
-{
-    std::vector<Submesh> submeshes;
-    GLuint vertexBufferHandle;
-    GLuint indexBufferHandle;
-};
-
 struct Image
 {
     void* pixels;
@@ -70,38 +25,10 @@ struct Image
     i32   stride;
 };
 
-struct Texture
+struct Texture_2D
 {
     GLuint      handle;
     std::string filepath;
-};
-
-struct Material
-{
-    std::string name;
-    vec3        albedo;
-    vec3        emissive;
-    f32         smoothness;
-    u32         albedoTextureIdx;
-    u32         emissiveTextureIdx;
-    u32         specularTextureIdx;
-    u32         normalsTextureIdx;
-    u32         bumpTextureIdx;
-};
-
-struct Model
-{
-    u32 meshIdx;
-    std::vector<u32> materialIdx;
-};
-
-struct Program
-{
-    GLuint             handle;
-    std::string        filepath;
-    std::string        programName;
-    u64                lastWriteTimestamp;
-    VertexShaderLayout vertexInputLayout;
 };
 
 enum Mode
@@ -137,18 +64,15 @@ struct App
 
     ivec2 displaySize;
 
-    std::vector<Texture>    textures;
-    std::vector<Material>   materials;
-    std::vector<Mesh>       meshes;
+    std::vector<Texture_2D>    textures_2D;
+    
     std::vector<Model>      models;
-    std::vector<Program>    programs;
+    std::vector<Shader>     shaders;
 
     // program indices
-    u32 texturedGeometryProgramIdx;
-    u32 texturedMeshProgramIdx;
-
-    u32 texturedMeshProgram_uTexture;
-    
+    u32 texturedGeometryShaderIdx;
+    u32 texturedMeshShaderIdx;
+        
     // texture indices
     u32 diceTexIdx;
     u32 whiteTexIdx;
@@ -158,6 +82,8 @@ struct App
 
     // Mode
     Mode mode;
+
+    Camera camera;
 
     // Embedded geometry (in-editor simple meshes such as
     // a screen filling quad, a cube, a sphere...)
@@ -170,33 +96,6 @@ struct App
     // VAO object to link our screen filling quad with our textured quad shader
     GLuint vao;
 };
-
-// Error checking
-#define GL_CHECK(stmt) do { \
-    stmt; \
-    CheckGLError(#stmt, __FILE__, __LINE__); \
-} while (0)
-
-void CheckGLError(const char* stmt, const char* file, int line);
-
-class OpenGLErrorGuard
-{
-public:
-    OpenGLErrorGuard(const char* context) : context(context) {
-        CheckGLError("Pre-guard", __FILE__, __LINE__);
-    }
-    ~OpenGLErrorGuard() {
-        CheckGLError(context, __FILE__, __LINE__);
-    }
-private:
-    const char* context;
-};
-
-// Kronos extension
-void APIENTRY OnGLError(GLenum source, GLenum type, GLuint id,
-    GLenum severity, GLsizei length,
-    const GLchar* message, const void* userParam);
-void InitDebugCallback(App* app);
 
 void Init(App* app);
 

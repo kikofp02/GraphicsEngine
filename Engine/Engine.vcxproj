@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Code\engine.cpp" />
+    <ClCompile Include="Code\model.h" />
     <ClCompile Include="Code\platform.cpp" />
     <ClCompile Include="ThirdParty\glad\include\glad\glad.c" />
     <ClCompile Include="ThirdParty\imgui-docking\imgui.cpp" />
@@ -32,8 +33,11 @@
     <ClCompile Include="ThirdParty\stb\stb.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Code\camera.h" />
     <ClInclude Include="Code\engine.h" />
+    <ClInclude Include="Code\gl_error.h" />
     <ClInclude Include="Code\platform.h" />
+    <ClInclude Include="Code\shader.h" />
     <ClInclude Include="ThirdParty\glad\include\glad\glad.h" />
     <ClInclude Include="ThirdParty\glad\include\glad\khrplatform.h" />
     <ClInclude Include="ThirdParty\imgui-docking\imconfig.h" />
