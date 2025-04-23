@@ -1,7 +1,4 @@
-//
 // engine.h: This file contains the types and functions relative to the engine.
-//
-
 #pragma once
 
 #include "platform.h"
@@ -84,6 +81,12 @@ struct App
     Mode mode;
 
     Camera camera;
+
+    //UBOs
+    GLuint transformsUBO;
+    GLuint uniformBlockAlignment;
+
+    size_t alignedBlockSize;
 
     f32 time;
 

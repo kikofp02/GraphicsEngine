@@ -164,9 +164,14 @@ public:
     std::string directory;
     bool gammaCorrection;
 
+    u32 bufferOffset;
+    u32 bufferSize;
+
     glm::vec3 position = glm::vec3(0.0f);
     glm::vec3 rotation = glm::vec3(0.0f);
     glm::vec3 scale = glm::vec3(1.0f);
+
+    Model() = default;
 
     Model(std::string const& path, bool gamma = false) : gammaCorrection(gamma) {
         LoadModel(path);

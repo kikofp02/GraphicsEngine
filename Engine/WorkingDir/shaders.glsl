@@ -1,3 +1,4 @@
+//shaders.glsl
 ///////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
@@ -51,17 +52,18 @@ out vec2 vTexCoord;
 out vec3 vNormal;
 out vec3 vFragPos;
 
-uniform mat4 uModel;
-uniform mat4 uView;
-uniform mat4 uProjection;
+layout(std140, binding = 1) uniform TransformBlock {
+    mat4 uWorldMatrix;
+    mat4 uWorldViewProjectionMatrix;
+};
 
 void main()
 {
 	vTexCoord = aTexCoord;
-	vNormal = mat3(transpose(inverse(uModel))) * aNormal; // Correct normal with non-uniform scaling
-    vFragPos = vec3(uModel * vec4(aPosition, 1.0));
-    
-    gl_Position = uProjection * uView * uModel * vec4(aPosition, 1.0);
+    vNormal = mat3(transpose(inverse(uWorldMatrix))) * aNormal;
+    vFragPos = vec3(uWorldMatrix * vec4(aPosition, 1.0));
+
+    gl_Position = uWorldViewProjectionMatrix * vec4(aPosition, 1.0);
 }
 
 #elif defined(FRAGMENT) ///////////////////////////////////////////////

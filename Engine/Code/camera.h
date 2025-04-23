@@ -9,7 +9,9 @@ enum Movement {
     M_FORWARD,
     M_BACKWARD,
     M_LEFT,
-    M_RIGHT
+    M_RIGHT,
+    M_UP,
+    M_DOWN
 };
 
 const float DEFAULT_YAW = -90.0f;
@@ -66,6 +68,8 @@ public:
         case M_BACKWARD: Position -= Front * velocity; break;
         case M_LEFT:     Position -= Right * velocity; break;
         case M_RIGHT:    Position += Right * velocity; break;
+        case M_UP:       Position += Up * velocity; break;
+        case M_DOWN:     Position -= Up * velocity; break;
         }
     }
 

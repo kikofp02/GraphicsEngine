@@ -1,3 +1,4 @@
+//shader.h
 #pragma once
 
 #include "platform.h"
@@ -17,7 +18,6 @@ struct VertexShaderLayout {
     std::vector<VertexShaderAttribute> attributes;
 };
 
-// engine.h
 class Shader
 {
 public:

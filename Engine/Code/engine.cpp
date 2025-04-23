@@ -1,3 +1,4 @@
+//engine.cpp
 #include "engine.h"
 #include "gl_error.h"
 
@@ -93,6 +94,80 @@ u32 LoadTexture2D(App* app, const char* filepath)
 
 #pragma region Initialization
 
+static u32 Align(u32 value, u32 alignment) {
+    return (value + alignment - 1) & ~(alignment - 1);
+}
+
+Model GeneratePlaneModel(App* app, float size, int subdivisions, const std::string& texturePath) {
+    Model model;
+    Mesh planeMesh;
+    Submesh planeSubmesh;
+
+    // Generate vertices
+    float step = size / subdivisions;
+    float halfSize = size * 0.5f;
+
+    for (int z = 0; z <= subdivisions; ++z) {
+        for (int x = 0; x <= subdivisions; ++x) {
+            Vertex vertex;
+            vertex.Position = glm::vec3(
+                -halfSize + x * step,
+                0.0f,
+                -halfSize + z * step
+            );
+            vertex.Normal = glm::vec3(0.0f, 1.0f, 0.0f);
+            vertex.TexCoords = glm::vec2(
+                static_cast<float>(x) / subdivisions,
+                static_cast<float>(z) / subdivisions
+            );
+            vertex.Tangent = glm::vec3(1.0f, 0.0f, 0.0f);
+            vertex.Bitangent = glm::vec3(0.0f, 0.0f, 1.0f);
+
+            planeSubmesh.vertices.push_back(vertex);
+        }
+    }
+
+    // Generate indices
+    for (int z = 0; z < subdivisions; ++z) {
+        for (int x = 0; x < subdivisions; ++x) {
+            int topLeft = z * (subdivisions + 1) + x;
+            int topRight = topLeft + 1;
+            int bottomLeft = (z + 1) * (subdivisions + 1) + x;
+            int bottomRight = bottomLeft + 1;
+
+            // First triangle
+            planeSubmesh.indices.push_back(topLeft);
+            planeSubmesh.indices.push_back(bottomLeft);
+            planeSubmesh.indices.push_back(topRight);
+
+            // Second triangle
+            planeSubmesh.indices.push_back(topRight);
+            planeSubmesh.indices.push_back(bottomLeft);
+            planeSubmesh.indices.push_back(bottomRight);
+        }
+    }
+
+    // Load and assign texture
+    u32 texIdx = LoadTexture2D(app, texturePath.c_str());
+    if (texIdx != UINT32_MAX) {
+        Texture texture;
+        texture.id = app->textures_2D[texIdx].handle;
+        texture.type = "texture_diffuse";
+        texture.path = texturePath;
+
+        // Add to model's loaded textures
+        model.textures_loaded.push_back(texture);
+        // Add to submesh textures
+        planeSubmesh.textures.push_back(texture);
+    }
+
+    planeMesh.submeshes.push_back(planeSubmesh);
+    planeMesh.SetupMesh();
+    model.meshes.push_back(planeMesh);
+
+    return model;
+}
+
 void InitTexturedQuad(App* app) {
     // - vertex buffers
     struct VertexV3V2 {
@@ -170,7 +245,7 @@ void Init(App* app)
     // TODO: Initialize your resources here!
     app->mode = Mode_TexturedMesh;
 
-    app->camera = Camera(glm::vec3(0.0f, 0.0f, 3.0f));
+    app->camera = Camera(glm::vec3(0.0f, 4.0f, 15.0f));
 
     GL_CHECK(glEnable(GL_DEPTH_TEST));
     GL_CHECK(glClearColor(0.1f, 0.1f, 0.1f, 1.0f));
@@ -180,12 +255,62 @@ void Init(App* app)
     app->shaders.emplace_back("shaders.glsl", "TEXTURED_MESH");
     app->texturedMeshShaderIdx = app->shaders.size() - 1;
 
-    Model myModel("Patrick/Patrick.obj");
-    app->models.push_back(myModel);
+    //Ground Plane
+    Model planeModel = GeneratePlaneModel(app, 10.0f, 10, "color_white.png");
+    app->models.push_back(planeModel);
+    app->models.back().scale = glm::vec3(4.0f, 1.0f, 4.0f);
 
+    //Patricks
+    Model patrickModel("Patrick/Patrick.obj");
+    // Define grid parameters
+    int countPerSide = 2; // 3x3 grid (9 Patricks total)
+    float spacing = 8.0f; // Space between models (adjust based on Patrick's size)
+
+    // Calculate starting position to center the grid
+    float totalWidth = (countPerSide - 1) * spacing;
+    float startX = -totalWidth / 2.0f;
+    float startZ = -totalWidth / 2.0f;
+
+    // Create grid of Patricks
+    for (int z = 0; z < countPerSide; ++z) {
+        for (int x = 0; x < countPerSide; ++x) {
+            // Create a copy of the original model
+            Model patrickCopy = patrickModel;
+
+            // Calculate position (keep original Y, offset X and Z)
+            patrickCopy.position = glm::vec3(
+                startX + x * spacing,  // X position
+                3.4f, // Keep original Y
+                startZ + z * spacing   // Z position
+            );
+
+            // Add to models list
+            app->models.push_back(patrickCopy);
+        }
+    }
+
+    // UBOs
+    // Get alignment requirement
+    glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT,
+        reinterpret_cast<GLint*>(&app->uniformBlockAlignment));
+
+    // Create transforms UBO
+    glGenBuffers(1, &app->transformsUBO);
+    glBindBuffer(GL_UNIFORM_BUFFER, app->transformsUBO);
+
+    // Calculate block size with alignment
+    const size_t blockSize = 2 * sizeof(glm::mat4);
+    app->alignedBlockSize = (blockSize + app->uniformBlockAlignment - 1) & ~(app->uniformBlockAlignment - 1);
+
+    // Allocate buffer space
+    glBufferData(GL_UNIFORM_BUFFER,
+        (app->models.size() + 10) * app->alignedBlockSize,
+        nullptr,
+        GL_DYNAMIC_DRAW);
+
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
     
-
-    //Enable debug options
+    // Enable debug options
     if (app->enableDebugGroups) {
         for (Model model : app->models) {
             for (Mesh mesh : model.meshes) {
@@ -257,6 +382,50 @@ void Gui(App* app)
     ImGui::End();
 }
 
+void UpdateUBOs(App* app) {
+    // Calculate view/projection matrices once
+    glm::mat4 view = app->camera.GetViewMatrix();
+    glm::mat4 projection = glm::perspective(
+        glm::radians(app->camera.Zoom),
+        (float)app->displaySize.x / (float)app->displaySize.y,
+        0.1f, 100.0f
+    );
+
+    // Update UBO data
+    glBindBuffer(GL_UNIFORM_BUFFER, app->transformsUBO);
+    GLubyte* bufferPtr = static_cast<GLubyte*>(glMapBuffer(GL_UNIFORM_BUFFER, GL_WRITE_ONLY));
+
+    u32 currentOffset = 0;
+    for (auto& model : app->models) {
+        // Calculate model matrix
+        glm::mat4 worldMatrix = glm::mat4(1.0f);
+        worldMatrix = glm::translate(worldMatrix, model.position);
+        worldMatrix = glm::rotate(worldMatrix, glm::radians(model.rotation.y),
+            glm::vec3(0.0f, 1.0f, 0.0f));
+        worldMatrix = glm::scale(worldMatrix, model.scale);
+
+        // Precompute MVP
+        glm::mat4 mvp = projection * view * worldMatrix;
+
+        // Align offset
+        currentOffset = Align(currentOffset, app->uniformBlockAlignment);
+
+        // Store matrices
+        memcpy(bufferPtr + currentOffset, &worldMatrix, sizeof(glm::mat4));
+        memcpy(bufferPtr + currentOffset + sizeof(glm::mat4), &mvp, sizeof(glm::mat4));
+
+        // Save model data
+        model.bufferOffset = currentOffset;
+        model.bufferSize = 2 * sizeof(glm::mat4);
+
+        // Move to next aligned position
+        currentOffset += app->alignedBlockSize;
+    }
+
+    glUnmapBuffer(GL_UNIFORM_BUFFER);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+}
+
 void Update(App* app)
 {
     //TODO_K: optimizar esto pa que no corra cada frame tos los programs
@@ -265,6 +434,27 @@ void Update(App* app)
         shader.ReloadIfNeeded();
     }
 
+    UpdateUBOs(app);
+
+    if (!app->models.empty()) {
+        float speed = 1.0f; // Adjust speed as needed
+        float radius = 2.0f; // Adjust movement radius as needed
+
+        // Calculate new position using sine/cosine for circular motion
+        //app->models[0].position.x = sin(app->time * speed) * radius;
+        //app->models[0].position.z = cos(app->time * speed) * radius;
+
+        // You could also add simple rotation
+        for (size_t i = 1; i < app->models.size(); ++i)
+        {
+            app->models[i].rotation.y = fmod(app->time * 30.0f, 360.0f); // 30 degrees per second
+        }
+    }
+
+    // You can handle app->input keyboard/mouse here
+#pragma region InputHandle
+
+    // Change mode
     if (app->input.keys[Key::K_2] == BUTTON_RELEASE) {
         switch (app->mode)
         {
@@ -281,21 +471,7 @@ void Update(App* app)
         }
     }
 
-    if (!app->models.empty()) {
-        float speed = 1.0f; // Adjust speed as needed
-        float radius = 2.0f; // Adjust movement radius as needed
-
-        // Calculate new position using sine/cosine for circular motion
-        //app->models[0].position.x = sin(app->time * speed) * radius;
-        //app->models[0].position.z = cos(app->time * speed) * radius;
-
-        // You could also add simple rotation
-        app->models[0].rotation.y = fmod(app->time * 30.0f, 360.0f); // 30 degrees per second
-    }
-
-    // You can handle app->input keyboard/mouse here
-
-    //Camera Update
+    // Camera Update
     // Handle camera movement
     if (app->input.keys[Key::K_W] == BUTTON_PRESSED)
         app->camera.ProcessKeyboard(M_FORWARD, app->deltaTime);
@@ -305,12 +481,16 @@ void Update(App* app)
         app->camera.ProcessKeyboard(M_LEFT, app->deltaTime);
     if (app->input.keys[Key::K_D] == BUTTON_PRESSED)
         app->camera.ProcessKeyboard(M_RIGHT, app->deltaTime);
+    if (app->input.keys[Key::K_SPACE] == BUTTON_PRESSED)
+        app->camera.ProcessKeyboard(M_UP, app->deltaTime);
+    if (app->input.keys[Key::K_CTRL] == BUTTON_PRESSED)
+        app->camera.ProcessKeyboard(M_DOWN, app->deltaTime);
 
     // Handle mouse movement for camera look
     if (app->input.mouseButtons[MouseButton::RIGHT] == BUTTON_PRESSED)
     {
         float xoffset = app->input.mouseDelta.x;
-        float yoffset = -app->input.mouseDelta.y; // Reversed since y-coordinates go from bottom to top
+        float yoffset = -app->input.mouseDelta.y;
         app->camera.ProcessMouseMovement(xoffset, yoffset);
     }
 
@@ -321,7 +501,7 @@ void Update(App* app)
     //    app->input.mouseWheelDelta = 0; // Reset after processing
     //}
 
-
+#pragma endregion
 
     app->time += app->deltaTime;
 }
@@ -384,21 +564,15 @@ void Render(App* app)
             Shader& currentShader = app->shaders[app->texturedMeshShaderIdx];
             currentShader.Use();
 
-            // Calculate matrices
-            glm::mat4 projection = glm::perspective(
-                glm::radians(app->camera.Zoom),
-                (float)app->displaySize.x / (float)app->displaySize.y,
-                0.1f, 100.0f);
-            glm::mat4 view = app->camera.GetViewMatrix();
+            for (Model& model : app->models) {
+                // Bind the transform data
+                glBindBufferRange(GL_UNIFORM_BUFFER, 1,
+                    app->transformsUBO,
+                    model.bufferOffset,
+                    app->alignedBlockSize);
 
-            currentShader.SetMat4("uProjection", projection);
-            currentShader.SetMat4("uView", view);
-            currentShader.SetVec3("uViewPos", app->camera.Position);
-
-            for (Model model : app->models) {
-                if (app->enableDebugGroups) glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 2, -1, "TexturedMesh");
+                // Use model's draw method
                 model.Draw(currentShader);
-                if (app->enableDebugGroups) glPopDebugGroup();
             }
         }
         break;        
