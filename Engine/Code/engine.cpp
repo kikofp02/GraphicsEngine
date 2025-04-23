@@ -278,7 +278,50 @@ void Update(App* app)
             break;
         }
     }
+
+    if (!app->models.empty()) {
+        float speed = 1.0f; // Adjust speed as needed
+        float radius = 2.0f; // Adjust movement radius as needed
+
+        // Calculate new position using sine/cosine for circular motion
+        //app->models[0].position.x = sin(app->time * speed) * radius;
+        //app->models[0].position.z = cos(app->time * speed) * radius;
+
+        // You could also add simple rotation
+        app->models[0].rotation.y = fmod(app->time * 30.0f, 360.0f); // 30 degrees per second
+    }
+
     // You can handle app->input keyboard/mouse here
+
+    //Camera Update
+    // Handle camera movement
+    if (app->input.keys[Key::K_W] == BUTTON_PRESSED)
+        app->camera.ProcessKeyboard(M_FORWARD, app->deltaTime);
+    if (app->input.keys[Key::K_S] == BUTTON_PRESSED)
+        app->camera.ProcessKeyboard(M_BACKWARD, app->deltaTime);
+    if (app->input.keys[Key::K_A] == BUTTON_PRESSED)
+        app->camera.ProcessKeyboard(M_LEFT, app->deltaTime);
+    if (app->input.keys[Key::K_D] == BUTTON_PRESSED)
+        app->camera.ProcessKeyboard(M_RIGHT, app->deltaTime);
+
+    // Handle mouse movement for camera look
+    if (app->input.mouseButtons[MouseButton::RIGHT] == BUTTON_PRESSED)
+    {
+        float xoffset = app->input.mouseDelta.x;
+        float yoffset = -app->input.mouseDelta.y; // Reversed since y-coordinates go from bottom to top
+        app->camera.ProcessMouseMovement(xoffset, yoffset);
+    }
+
+    //// Handle mouse scroll for zoom
+    //if (app->input.mouseWheelDelta != 0)
+    //{
+    //    app->camera.ProcessMouseScroll(app->input.mouseWheelDelta);
+    //    app->input.mouseWheelDelta = 0; // Reset after processing
+    //}
+
+
+
+    app->time += app->deltaTime;
 }
 
 void Render(App* app)
@@ -338,6 +381,17 @@ void Render(App* app)
         {
             Shader& currentShader = app->shaders[app->texturedMeshShaderIdx];
             currentShader.Use();
+
+            // Calculate matrices
+            glm::mat4 projection = glm::perspective(
+                glm::radians(app->camera.Zoom),
+                (float)app->displaySize.x / (float)app->displaySize.y,
+                0.1f, 100.0f);
+            glm::mat4 view = app->camera.GetViewMatrix();
+
+            currentShader.SetMat4("uProjection", projection);
+            currentShader.SetMat4("uView", view);
+            currentShader.SetVec3("uViewPos", app->camera.Position);
 
             for (auto& model : app->models) {
                 if (app->enableDebugGroups) glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 2, -1, "TexturedMesh");

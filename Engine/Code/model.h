@@ -121,6 +121,10 @@ public:
     std::string directory;
     bool gammaCorrection;
 
+    glm::vec3 position = glm::vec3(0.0f);
+    glm::vec3 rotation = glm::vec3(0.0f); // Euler angles in degrees
+    glm::vec3 scale = glm::vec3(1.0f);
+
     Model(std::string const& path, bool gamma = false) : gammaCorrection(gamma) {
         LoadModel(path);
 
@@ -128,6 +132,16 @@ public:
     }
 
     void Draw(Shader& shader) {
+        // Calculate model matrix
+        glm::mat4 model = glm::mat4(1.0f);
+        model = glm::translate(model, position);
+        model = glm::rotate(model, glm::radians(rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
+        model = glm::rotate(model, glm::radians(rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
+        model = glm::rotate(model, glm::radians(rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
+        model = glm::scale(model, scale);
+
+        shader.SetMat4("uModel", model);
+
         for (u32 i = 0; i < meshes.size(); i++)
             meshes[i].Draw(shader);
     }
