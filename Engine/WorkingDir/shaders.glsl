@@ -80,6 +80,7 @@ void main()
     // Combine with texture
     vec4 texColor = texture(uTexture, vTexCoord);
     oColor = vec4(texColor.rgb, texColor.a);
+    //oColor = vec4(normalize(vNormal) * 0.5 + 0.5, 1.0);
 }
 
 #endif

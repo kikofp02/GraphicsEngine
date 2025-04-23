@@ -183,24 +183,26 @@ void Init(App* app)
     Model myModel("Patrick/Patrick.obj");
     app->models.push_back(myModel);
 
+    
+
     //Enable debug options
     if (app->enableDebugGroups) {
-        for (auto& model : app->models) {
-            for (auto& mesh : model.meshes) {
+        for (Model model : app->models) {
+            for (Mesh mesh : model.meshes) {
                 glObjectLabel(GL_VERTEX_ARRAY, mesh.VAO, -1, "ModelVAO");
                 glObjectLabel(GL_BUFFER, mesh.VBO, -1, "ModelVBO");
                 glObjectLabel(GL_BUFFER, mesh.EBO, -1, "ModelEBO");
             }
         }
 
-        for (auto& model : app->models) {
-            for (auto& texture : model.textures_loaded) {
+        for (Model model : app->models) {
+            for (Texture texture : model.textures_loaded) {
                 glObjectLabel(GL_TEXTURE, texture.id, -1,
                     texture.path.c_str());
             }
         }
 
-        for (auto& texture : app->textures_2D) {
+        for (Texture_2D texture : app->textures_2D) {
             glObjectLabel(GL_TEXTURE, texture.handle, -1,
                 texture.filepath.c_str());
         }
@@ -393,7 +395,7 @@ void Render(App* app)
             currentShader.SetMat4("uView", view);
             currentShader.SetVec3("uViewPos", app->camera.Position);
 
-            for (auto& model : app->models) {
+            for (Model model : app->models) {
                 if (app->enableDebugGroups) glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 2, -1, "TexturedMesh");
                 model.Draw(currentShader);
                 if (app->enableDebugGroups) glPopDebugGroup();
