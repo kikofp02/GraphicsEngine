@@ -360,18 +360,40 @@ void Init(App* app)
     }
 
     // Lights
-    Light sun;
-    sun.type = LightType_Directional;
-    sun.color = glm::vec3(1.0f, 0.9f, 0.8f);
-    sun.direction = glm::vec3(-0.5f, -1.0f, -0.5f);
-    app->lights.push_back(sun);
+    Light sun1;
+    sun1.type = LightType_Directional;
+    sun1.color = glm::vec3(1.0f, 0.9f, 0.8f);
+    sun1.direction = glm::vec3(-0.5f, -1.0f, -0.5f);
+    app->lights.push_back(sun1);
 
-    Light pointLight;
-    pointLight.type = LightType_Point;
-    pointLight.color = glm::vec3(1.0f, 0.5f, 0.3f);
-    pointLight.position = glm::vec3(0.0f, 5.0f, 0.0f);
-    pointLight.range = 10.0f;
-    app->lights.push_back(pointLight);
+    Light sun2;
+    sun1.type = LightType_Directional;
+    sun2.color = glm::vec3(0.5f, 0.6f, 0.8f);
+    sun2.direction = glm::vec3(0.5f, -1.0f, 0.2f);
+    app->lights.push_back(sun2);
+
+    const int lights_gridSize = 4;
+    const float lights_spacing = 8.0f;
+
+    float lights_totalWidth = (lights_gridSize - 1) * lights_spacing;
+    float lights_startX = -lights_totalWidth / 2.0f;
+    float lights_startZ = -lights_totalWidth / 2.0f;
+
+    for (int z = 0; z < lights_gridSize; ++z) {
+        for (int x = 0; x < lights_gridSize; ++x) {
+            Light pointLight;
+            pointLight.type = LightType_Point;
+            pointLight.color = glm::vec3(
+                rand() / (float)RAND_MAX * 0.5f + 0.5f,
+                rand() / (float)RAND_MAX * 0.5f + 0.5f,
+                rand() / (float)RAND_MAX * 0.5f + 0.5f
+            );
+            pointLight.position = glm::vec3(lights_startX + x * lights_spacing, 4.0f, lights_startZ + z * lights_spacing);
+            pointLight.range = 5.0f;
+            app->lights.push_back(pointLight);
+        }
+    }
+    
 
     // UBOs
     // Transform UBO
@@ -379,12 +401,12 @@ void Init(App* app)
         reinterpret_cast<GLint*>(&app->transformsUBO.alignment)));
 
     // Calculate block size with alignment
-    app->transformsUBO.blockSize = 2 * sizeof(glm::mat4);
+    app->transformsUBO.blockSize = (2 * sizeof(glm::mat4));
     app->transformsUBO.blockSize = Align(app->transformsUBO.blockSize, app->transformsUBO.alignment);
 
     // Create buffer using utilities
     app->transformsUBO.buffer = CreateBuffer(
-        (app->models.size() + 10) * app->transformsUBO.blockSize,
+        app->transformsUBO.blockSize * app->models.size(),
         GL_UNIFORM_BUFFER,
         GL_DYNAMIC_DRAW
     );
@@ -396,7 +418,7 @@ void Init(App* app)
     size_t cameraPosSize = sizeof(glm::vec4); // vec3 + padding
     size_t lightCountSize = sizeof(glm::uvec4); // uint + padding (to vec4)
     size_t lightSize = 4 * sizeof(glm::vec4); // uint (as vec4) + 3 vec4s
-    app->globalParamsUBO.blockSize = cameraPosSize + lightCountSize + 16 * lightSize;
+    app->globalParamsUBO.blockSize = cameraPosSize + lightCountSize + app->lights.size() * lightSize;
     app->globalParamsUBO.blockSize = Align(app->globalParamsUBO.blockSize, app->globalParamsUBO.alignment);
 
     app->globalParamsUBO.buffer = CreateBuffer(
@@ -492,6 +514,8 @@ void UpdateUBOs(App* app) {
     app->transformsUBO.currentOffset = 0;
 
     for (auto& model : app->models) {
+        size_t blockStart = app->transformsUBO.currentOffset;
+
         // Calculate matrices
         glm::mat4 world = glm::mat4(1.0f);
         world = glm::translate(world, model.position);
@@ -504,8 +528,10 @@ void UpdateUBOs(App* app) {
         PushMat4(app->transformsUBO.buffer, world);      // Uses alignment from utilities
         PushMat4(app->transformsUBO.buffer, mvp);        // Auto-aligns after first matrix
 
+        AlignHead(app->transformsUBO.buffer, app->transformsUBO.blockSize);
+
         // Store model metadata
-        model.bufferOffset = app->transformsUBO.currentOffset;
+        model.bufferOffset = blockStart;
         model.bufferSize = app->transformsUBO.blockSize;
 
         // Advance to next block
@@ -534,7 +560,7 @@ void UpdateUBOs(App* app) {
 
         PushVec3(app->globalParamsUBO.buffer, light.color);
         PushVec3(app->globalParamsUBO.buffer, light.direction);
-        PushVec3(app->globalParamsUBO.buffer, light.position);
+        PushVec4(app->globalParamsUBO.buffer, glm::vec4(light.position, light.range));
         // TODO pass range and use it?
         //Push(app->globalParamsUBO.buffer, light.range);
     }

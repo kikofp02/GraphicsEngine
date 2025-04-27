@@ -52,7 +52,7 @@ struct Light {
     uint type;
     vec3 color;
     vec3 direction;
-    vec3 position;
+    vec4 position;
 };
 
 layout(std140, binding = 0) uniform GlobalParams {
@@ -91,7 +91,7 @@ struct Light {
     uint type;
     vec3 color;
     vec3 direction;
-    vec3 position;
+    vec4 position;
 };
 
 layout(std140, binding = 0) uniform GlobalParams {
@@ -103,31 +103,37 @@ layout(std140, binding = 0) uniform GlobalParams {
 layout(location = 0) out vec4 oColor;
 
 vec3 CalculateDirectionalLight(uint index, vec3 normal, vec3 viewDir) {
-    // Light direction
-    vec3 lightDir = normalize(-uLight[index].direction);
-    
-    // Diffuse shading
+    // Quad calculation (full-screen effect)
+    vec3 lightDir = normalize(-uLight[index].direction.xyz);
     float diff = max(dot(normal, lightDir), 0.0);
-    vec3 diffuse = uLight[index].color * diff;
-
-    return diffuse;
+    
+    // Simple specular
+    vec3 reflectDir = reflect(-lightDir, normal);
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
+    
+    return uLight[index].color * (diff + spec);
 }
 
-// Point light calculation
 vec3 CalculatePointLight(uint index, vec3 normal, vec3 viewDir) {
-    // Light direction and distance
-    vec3 lightVec = uLight[index].position - vFragPos;
+    // Sphere calculation
+    vec3 lightPos = uLight[index].position.xyz;
+    float range = uLight[index].position.w;
+    
+    vec3 lightVec = lightPos - vFragPos;
     float distance = length(lightVec);
-    vec3 lightDir = lightVec / distance;
+    if(distance > range) return vec3(0.0);
     
-    // Diffuse shading
+    vec3 lightDir = normalize(lightVec);
     float diff = max(dot(normal, lightDir), 0.0);
-    vec3 diffuse = uLight[index].color * diff;
-
-    // Attenuation (simple quadratic falloff)
-    float attenuation = 1.0 / (1.0 + 0.09 * distance + 0.032 * (distance * distance));
     
-    return diffuse * attenuation;
+    // Attenuation
+    float attenuation = 1.0 - smoothstep(range * 0.75, range, distance);
+    
+    // Specular
+    vec3 reflectDir = reflect(-lightDir, normal);
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
+    
+    return uLight[index].color.xyz * (diff + spec) * attenuation;
 }
 
 void main()
