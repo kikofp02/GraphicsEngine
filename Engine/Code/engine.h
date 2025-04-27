@@ -43,6 +43,35 @@ struct OpenGLInfo {
     std::vector<std::string> glExtensions;
 };
 
+struct Buffer {
+    GLuint handle;
+    GLenum type;
+    u32 size;
+    u32 head;
+    void* data;
+};
+
+struct UniformBuffer {
+    Buffer buffer;
+    u32 currentOffset;
+    u32 blockSize;
+    u32 alignment;
+};
+
+//Lights
+enum LightType {
+    LightType_Directional,
+    LightType_Point
+};
+
+struct Light {
+    LightType type;
+    glm::vec3 color;
+    glm::vec3 direction;
+    glm::vec3 position;
+    float range;
+};
+
 struct App
 {
     // Loop
@@ -66,6 +95,8 @@ struct App
     std::vector<Model>      models;
     std::vector<Shader>     shaders;
 
+    std::vector<Light> lights;
+
     // program indices
     u32 texturedGeometryShaderIdx;
     u32 texturedMeshShaderIdx;
@@ -83,10 +114,8 @@ struct App
     Camera camera;
 
     //UBOs
-    GLuint transformsUBO;
-    GLuint uniformBlockAlignment;
-
-    size_t alignedBlockSize;
+    UniformBuffer transformsUBO;
+    UniformBuffer globalParamsUBO;
 
     f32 time;
 

@@ -92,11 +92,81 @@ u32 LoadTexture2D(App* app, const char* filepath)
 
 #pragma endregion
 
-#pragma region Initialization
+#pragma region Utilities
+
+bool IsPowerOf2(u32 value)
+{
+    return value && !(value & (value - 1));
+}
 
 static u32 Align(u32 value, u32 alignment) {
     return (value + alignment - 1) & ~(alignment - 1);
 }
+
+Buffer CreateBuffer(u32 size, GLenum type, GLenum usage)
+{
+    Buffer buffer = {};
+    buffer.size = size;
+    buffer.type = type;
+
+    GL_CHECK(glGenBuffers(1, &buffer.handle));
+    GL_CHECK(glBindBuffer(type, buffer.handle));
+    GL_CHECK(glBufferData(type, buffer.size, NULL, usage));
+    GL_CHECK(glBindBuffer(type, 0));
+
+    return buffer;
+}
+
+#define CreateConstantBuffer(size) CreateBuffer(size, GL_UNIFORM_BUFFER, GL_STREAM_DRAW)
+#define CreateStaticVertexBuffer(size) CreateBuffer(size, GL_ARRAY_BUFFER, GL_STATIC_DRAW)
+#define CreateStaticIndexBuffer(size) CreateBuffer(size, GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW)
+
+void BindBuffer(const Buffer& buffer)
+{
+    GL_CHECK(glBindBuffer(buffer.type, buffer.handle));
+}
+
+void MapBuffer(Buffer& buffer, GLenum access)
+{
+    GL_CHECK(glBindBuffer(buffer.type, buffer.handle));
+    void* ptr = glMapBuffer(buffer.type, access);
+    buffer.data = (u8*)ptr;
+
+    //buffer.data = (u8*)glMapBuffer(buffer.type, access);
+    buffer.head = 0;
+}
+
+void UnmapBuffer(Buffer& buffer)
+{
+    GL_CHECK(glBindBuffer(buffer.type, buffer.handle));
+    GL_CHECK(glUnmapBuffer(buffer.type));
+    GL_CHECK(glBindBuffer(buffer.type, 0));
+}
+
+void AlignHead(Buffer& buffer, u32 alignment)
+{
+    ASSERT(IsPowerOf2(alignment), "The alignment must be a power of 2");
+    buffer.head = Align(buffer.head, alignment);
+}
+
+void PushAlignedData(Buffer& buffer, const void* data, u32 size, u32 alignment)
+{
+    ASSERT(buffer.data != NULL, "The buffer must be mapped first");
+    AlignHead(buffer, alignment);
+    memcpy((u8*)buffer.data + buffer.head, data, size);
+    buffer.head += size;
+}
+
+#define PushData(buffer, data, size) PushAlignedData(buffer, data, size, 1)
+#define PushUInt(buffer, value) { u32 v = value; PushAlignedData(buffer, &v, sizeof(v), 4); }
+#define PushVec3(buffer, value) PushAlignedData(buffer, value_ptr(value), sizeof(value), sizeof(vec4))
+#define PushVec4(buffer, value) PushAlignedData(buffer, value_ptr(value), sizeof(value), sizeof(vec4))
+#define PushMat3(buffer, value) PushAlignedData(buffer, value_ptr(value), sizeof(value), sizeof(vec4))
+#define PushMat4(buffer, value) PushAlignedData(buffer, value_ptr(value), sizeof(value), sizeof(vec4))
+
+#pragma endregion
+
+#pragma region Initialization
 
 Model GeneratePlaneModel(App* app, float size, int subdivisions, const std::string& texturePath) {
     Model model;
@@ -263,7 +333,7 @@ void Init(App* app)
     //Patricks
     Model patrickModel("Patrick/Patrick.obj");
     // Define grid parameters
-    int countPerSide = 2; // 3x3 grid (9 Patricks total)
+    int countPerSide = 4; // 3x3 grid (9 Patricks total)
     float spacing = 8.0f; // Space between models (adjust based on Patrick's size)
 
     // Calculate starting position to center the grid
@@ -289,26 +359,51 @@ void Init(App* app)
         }
     }
 
-    // UBOs
-    // Get alignment requirement
-    glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT,
-        reinterpret_cast<GLint*>(&app->uniformBlockAlignment));
+    // Lights
+    Light sun;
+    sun.type = LightType_Directional;
+    sun.color = glm::vec3(1.0f, 0.9f, 0.8f);
+    sun.direction = glm::vec3(-0.5f, -1.0f, -0.5f);
+    app->lights.push_back(sun);
 
-    // Create transforms UBO
-    glGenBuffers(1, &app->transformsUBO);
-    glBindBuffer(GL_UNIFORM_BUFFER, app->transformsUBO);
+    Light pointLight;
+    pointLight.type = LightType_Point;
+    pointLight.color = glm::vec3(1.0f, 0.5f, 0.3f);
+    pointLight.position = glm::vec3(0.0f, 5.0f, 0.0f);
+    pointLight.range = 10.0f;
+    app->lights.push_back(pointLight);
+
+    // UBOs
+    // Transform UBO
+    GL_CHECK(glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT,
+        reinterpret_cast<GLint*>(&app->transformsUBO.alignment)));
 
     // Calculate block size with alignment
-    const size_t blockSize = 2 * sizeof(glm::mat4);
-    app->alignedBlockSize = (blockSize + app->uniformBlockAlignment - 1) & ~(app->uniformBlockAlignment - 1);
+    app->transformsUBO.blockSize = 2 * sizeof(glm::mat4);
+    app->transformsUBO.blockSize = Align(app->transformsUBO.blockSize, app->transformsUBO.alignment);
 
-    // Allocate buffer space
-    glBufferData(GL_UNIFORM_BUFFER,
-        (app->models.size() + 10) * app->alignedBlockSize,
-        nullptr,
-        GL_DYNAMIC_DRAW);
+    // Create buffer using utilities
+    app->transformsUBO.buffer = CreateBuffer(
+        (app->models.size() + 10) * app->transformsUBO.blockSize,
+        GL_UNIFORM_BUFFER,
+        GL_DYNAMIC_DRAW
+    );
 
-    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    // Global UBO
+    GL_CHECK(glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT,
+        reinterpret_cast<GLint*>(&app->globalParamsUBO.alignment)));
+
+    size_t cameraPosSize = sizeof(glm::vec4); // vec3 + padding
+    size_t lightCountSize = sizeof(glm::uvec4); // uint + padding (to vec4)
+    size_t lightSize = 4 * sizeof(glm::vec4); // uint (as vec4) + 3 vec4s
+    app->globalParamsUBO.blockSize = cameraPosSize + lightCountSize + 16 * lightSize;
+    app->globalParamsUBO.blockSize = Align(app->globalParamsUBO.blockSize, app->globalParamsUBO.alignment);
+
+    app->globalParamsUBO.buffer = CreateBuffer(
+        app->globalParamsUBO.blockSize,
+        GL_UNIFORM_BUFFER,
+        GL_STREAM_DRAW
+    );
     
     // Enable debug options
     if (app->enableDebugGroups) {
@@ -383,47 +478,68 @@ void Gui(App* app)
 }
 
 void UpdateUBOs(App* app) {
-    // Calculate view/projection matrices once
+
+    // Transform UBO
+    // Calculate matrices
     glm::mat4 view = app->camera.GetViewMatrix();
-    glm::mat4 projection = glm::perspective(
-        glm::radians(app->camera.Zoom),
+    glm::mat4 projection = glm::perspective(glm::radians(app->camera.Zoom),
         (float)app->displaySize.x / (float)app->displaySize.y,
         0.1f, 100.0f
     );
 
-    // Update UBO data
-    glBindBuffer(GL_UNIFORM_BUFFER, app->transformsUBO);
-    GLubyte* bufferPtr = static_cast<GLubyte*>(glMapBuffer(GL_UNIFORM_BUFFER, GL_WRITE_ONLY));
+    // Map buffer using utility
+    MapBuffer(app->transformsUBO.buffer, GL_WRITE_ONLY);
+    app->transformsUBO.currentOffset = 0;
 
-    u32 currentOffset = 0;
     for (auto& model : app->models) {
-        // Calculate model matrix
-        glm::mat4 worldMatrix = glm::mat4(1.0f);
-        worldMatrix = glm::translate(worldMatrix, model.position);
-        worldMatrix = glm::rotate(worldMatrix, glm::radians(model.rotation.y),
-            glm::vec3(0.0f, 1.0f, 0.0f));
-        worldMatrix = glm::scale(worldMatrix, model.scale);
+        // Calculate matrices
+        glm::mat4 world = glm::mat4(1.0f);
+        world = glm::translate(world, model.position);
+        world = glm::rotate(world, glm::radians(model.rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
+        world = glm::scale(world, model.scale);
 
-        // Precompute MVP
-        glm::mat4 mvp = projection * view * worldMatrix;
+        glm::mat4 mvp = projection * view * world;
 
-        // Align offset
-        currentOffset = Align(currentOffset, app->uniformBlockAlignment);
+        // Push data with automatic alignment
+        PushMat4(app->transformsUBO.buffer, world);      // Uses alignment from utilities
+        PushMat4(app->transformsUBO.buffer, mvp);        // Auto-aligns after first matrix
 
-        // Store matrices
-        memcpy(bufferPtr + currentOffset, &worldMatrix, sizeof(glm::mat4));
-        memcpy(bufferPtr + currentOffset + sizeof(glm::mat4), &mvp, sizeof(glm::mat4));
+        // Store model metadata
+        model.bufferOffset = app->transformsUBO.currentOffset;
+        model.bufferSize = app->transformsUBO.blockSize;
 
-        // Save model data
-        model.bufferOffset = currentOffset;
-        model.bufferSize = 2 * sizeof(glm::mat4);
-
-        // Move to next aligned position
-        currentOffset += app->alignedBlockSize;
+        // Advance to next block
+        app->transformsUBO.currentOffset += app->transformsUBO.blockSize;
     }
 
-    glUnmapBuffer(GL_UNIFORM_BUFFER);
-    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    // Finalize using utility
+    UnmapBuffer(app->transformsUBO.buffer);
+
+
+    // Global UBO
+    MapBuffer(app->globalParamsUBO.buffer, GL_WRITE_ONLY);
+
+    // Camera position
+    PushVec3(app->globalParamsUBO.buffer, app->camera.Position);
+
+    // Light count
+    PushUInt(app->globalParamsUBO.buffer, static_cast<u32>(app->lights.size()));
+
+    // Lights array
+    for (auto& light : app->lights) {
+        AlignHead(app->globalParamsUBO.buffer, 16); // Align start of each Light struct
+
+        PushUInt(app->globalParamsUBO.buffer, static_cast<u32>(light.type));
+        AlignHead(app->globalParamsUBO.buffer, 16); // Add 12 bytes padding after type
+
+        PushVec3(app->globalParamsUBO.buffer, light.color);
+        PushVec3(app->globalParamsUBO.buffer, light.direction);
+        PushVec3(app->globalParamsUBO.buffer, light.position);
+        // TODO pass range and use it?
+        //Push(app->globalParamsUBO.buffer, light.range);
+    }
+
+    UnmapBuffer(app->globalParamsUBO.buffer);
 }
 
 void Update(App* app)
@@ -447,7 +563,7 @@ void Update(App* app)
         // You could also add simple rotation
         for (size_t i = 1; i < app->models.size(); ++i)
         {
-            app->models[i].rotation.y = fmod(app->time * 30.0f, 360.0f); // 30 degrees per second
+            app->models[i].rotation.y = fmod(app->time * 30.0f * (i*i), 360.0f); // 30 degrees per second
         }
     }
 
@@ -564,14 +680,14 @@ void Render(App* app)
             Shader& currentShader = app->shaders[app->texturedMeshShaderIdx];
             currentShader.Use();
 
-            for (Model& model : app->models) {
-                // Bind the transform data
-                glBindBufferRange(GL_UNIFORM_BUFFER, 1,
-                    app->transformsUBO,
-                    model.bufferOffset,
-                    app->alignedBlockSize);
+            GL_CHECK(glBindBufferRange(GL_UNIFORM_BUFFER, 0, app->globalParamsUBO.buffer.handle, 0, app->globalParamsUBO.blockSize));
 
-                // Use model's draw method
+            for (Model& model : app->models) {
+                glBindBufferRange(GL_UNIFORM_BUFFER, 1,
+                    app->transformsUBO.buffer.handle,
+                    model.bufferOffset,
+                    app->transformsUBO.blockSize);
+
                 model.Draw(currentShader);
             }
         }
