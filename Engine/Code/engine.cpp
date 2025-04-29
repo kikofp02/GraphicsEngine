@@ -3,6 +3,7 @@
 #include "gl_error.h"
 
 #include <imgui.h>
+#include <imgui_internal.h>
 #include <stb_image.h>
 #include <stb_image_write.h>
 #include <filesystem>
@@ -246,10 +247,10 @@ void InitTexturedQuad(App* app) {
     };
 
     const VertexV3V2 vertices[] = {
-        {glm::vec3(-0.5, -0.5, 0.0), glm::vec2(0.0, 0.0)}, //bottom-left
-        {glm::vec3(0.5, -0.5, 0.0), glm::vec2(1.0, 0.0)}, //bottom-right
-        {glm::vec3(0.5, 0.5, 0.0), glm::vec2(1.0, 1.0)}, //top-right
-        {glm::vec3(-0.5, 0.5, 0.0), glm::vec2(0.0, 1.0)}, //top-left
+    {glm::vec3(-1.0, -1.0, 0.0), glm::vec2(0.0, 0.0)},  // Bottom-left
+    {glm::vec3(1.0, -1.0, 0.0), glm::vec2(1.0, 0.0)},   // Bottom-right
+    {glm::vec3(1.0, 1.0, 0.0), glm::vec2(1.0, 1.0)},    // Top-right
+    {glm::vec3(-1.0, 1.0, 0.0), glm::vec2(0.0, 1.0)}    // Top-left
     };
 
     const u16 indices[] = {
@@ -295,6 +296,55 @@ void InitTexturedQuad(App* app) {
     }
 }
 
+void InitBuffer(App* app) {
+    // Create Framebuffer Object (FBO)
+    glGenFramebuffers(1, &app->fboHandle);
+    glBindFramebuffer(GL_FRAMEBUFFER, app->fboHandle);
+
+    // Albedo texture (Color Attachment 0)
+    glGenTextures(1, &app->albedoTexture);
+    glBindTexture(GL_TEXTURE_2D, app->albedoTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, app->displaySize.x, app->displaySize.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, app->albedoTexture, 0);
+
+    // Normal texture (Color Attachment 1)
+    glGenTextures(1, &app->normalTexture);
+    glBindTexture(GL_TEXTURE_2D, app->normalTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, app->displaySize.x, app->displaySize.y, 0, GL_RGB, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, app->normalTexture, 0);
+
+    // Position (GL_RGB32F for accurate positions)
+    glGenTextures(1, &app->positionTexture);
+    glBindTexture(GL_TEXTURE_2D, app->positionTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, app->displaySize.x, app->displaySize.y, 0, GL_RGB, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, app->positionTexture, 0);
+
+    // Depth texture
+    glGenTextures(1, &app->depthTexture);
+    glBindTexture(GL_TEXTURE_2D, app->depthTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, app->displaySize.x, app->displaySize.y, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, app->depthTexture, 0);
+
+    // Specify draw buffers
+    GLenum drawBuffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
+    glDrawBuffers(3, drawBuffers);
+
+    // Check FBO completeness
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        ELOG("FBO initialization failed!");
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
 void Init(App* app)
 {
     GLUtils::InitDebugging(app);
@@ -314,19 +364,30 @@ void Init(App* app)
 
     // TODO: Initialize your resources here!
     app->mode = Mode_TexturedMesh;
+    app->displayMode = Albedo;
 
-    app->camera = Camera(glm::vec3(0.0f, 4.0f, 15.0f));
+    app->camera = Camera(glm::vec3(-60.0f, 25.0f, 60.0f));
+    app->camera.Pitch = -20.;
+    app->camera.Yaw = -45.;
+    app->camera.UpdateVectors();
 
     GL_CHECK(glEnable(GL_DEPTH_TEST));
     GL_CHECK(glClearColor(0.1f, 0.1f, 0.1f, 1.0f));
 
+    InitBuffer(app);
     InitTexturedQuad(app);
     
     app->shaders.emplace_back("shaders.glsl", "TEXTURED_MESH");
     app->texturedMeshShaderIdx = app->shaders.size() - 1;
 
+    app->shaders.emplace_back("shaders.glsl", "GEOMETRY_PASS");
+    app->geometryPassShaderIdx = app->shaders.size() - 1;
+
+    app->shaders.emplace_back("shaders.glsl", "DEFERRED_LIGHTING");
+    app->deferredShaderIdx = app->shaders.size() - 1;
+
     //Ground Plane
-    Model planeModel = GeneratePlaneModel(app, 10.0f, 10, "color_white.png");
+    Model planeModel = GeneratePlaneModel(app, 20.0f, 10, "color_white.png");
     app->models.push_back(planeModel);
     app->models.back().scale = glm::vec3(4.0f, 1.0f, 4.0f);
 
@@ -334,7 +395,7 @@ void Init(App* app)
     Model patrickModel("Patrick/Patrick.obj");
     // Define grid parameters
     int countPerSide = 4; // 3x3 grid (9 Patricks total)
-    float spacing = 8.0f; // Space between models (adjust based on Patrick's size)
+    float spacing = 15.0f; // Space between models (adjust based on Patrick's size)
 
     // Calculate starting position to center the grid
     float totalWidth = (countPerSide - 1) * spacing;
@@ -373,7 +434,7 @@ void Init(App* app)
     app->lights.push_back(sun2);
 
     const int lights_gridSize = 4;
-    const float lights_spacing = 8.0f;
+    const float lights_spacing = 15.0f;
 
     float lights_totalWidth = (lights_gridSize - 1) * lights_spacing;
     float lights_startX = -lights_totalWidth / 2.0f;
@@ -388,8 +449,8 @@ void Init(App* app)
                 rand() / (float)RAND_MAX * 0.5f + 0.5f,
                 rand() / (float)RAND_MAX * 0.5f + 0.5f
             );
-            pointLight.position = glm::vec3(lights_startX + x * lights_spacing, 4.0f, lights_startZ + z * lights_spacing);
-            pointLight.range = 5.0f;
+            pointLight.position = glm::vec3(lights_startX + x * lights_spacing, 8.f, lights_startZ + z * lights_spacing);
+            pointLight.range = 10.0f;
             app->lights.push_back(pointLight);
         }
     }
@@ -453,49 +514,142 @@ void Init(App* app)
 
 #pragma endregion
 
+void ResizeFBO(App* app) {
+    // Albedo
+    glBindTexture(GL_TEXTURE_2D, app->albedoTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8,
+        app->displaySize.x, app->displaySize.y,
+        0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
+    // Normal
+    glBindTexture(GL_TEXTURE_2D, app->normalTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F,
+        app->displaySize.x, app->displaySize.y,
+        0, GL_RGB, GL_FLOAT, NULL);
+
+    // Position
+    glBindTexture(GL_TEXTURE_2D, app->positionTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F,
+        app->displaySize.x, app->displaySize.y,
+        0, GL_RGB, GL_FLOAT, NULL);
+
+    // Depth
+    glBindTexture(GL_TEXTURE_2D, app->depthTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24,
+        app->displaySize.x, app->displaySize.y,
+        0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+}
+
 void Gui(App* app)
 {
-    ImGui::Begin("Info");
-    ImGui::Text("FPS: %f", 1.0f / app->deltaTime);
+    ImGui::Begin("Engine Dashboard");
 
-    if (ImGui::CollapsingHeader("OpenGL Information", ImGuiTreeNodeFlags_DefaultOpen))
+    ImGui::Text("CONTROLS:");
+    ImGui::Text("W A S D for camera movement");
+    ImGui::Text("Mouse Right click + Mouse Drag -> camera rotation");
+    ImGui::Text("Key 2 -> Swap render mode");
+
+    // System Info Section
+    if (ImGui::CollapsingHeader("System Information", ImGuiTreeNodeFlags_DefaultOpen))
     {
-        if (ImGui::TreeNodeEx("Version Information", ImGuiTreeNodeFlags_DefaultOpen))
+        if (ImGui::CollapsingHeader("FPS Graph", ImGuiTreeNodeFlags_DefaultOpen)) {
+            static float frameTimes[100] = {};
+            static int frameOffset = 0;
+            static float maxFrameTime = 0.0f;
+
+            // Update frame time history
+            frameTimes[frameOffset] = app->deltaTime * 1000.0f; // Convert to milliseconds
+            frameOffset = (frameOffset + 1) % IM_ARRAYSIZE(frameTimes);
+            maxFrameTime = *std::max_element(frameTimes, frameTimes + IM_ARRAYSIZE(frameTimes)) * 1.1f;
+
+            // Display frame time graph
+            ImGui::PlotLines("Frame Time (ms)", frameTimes, IM_ARRAYSIZE(frameTimes), frameOffset,
+                nullptr, 0.0f, maxFrameTime, ImVec2(300, 60));
+
+            ImGui::SameLine();
+            ImGui::Text("FPS: %.1f\n%.1f ms", 1.0f / app->deltaTime, app->deltaTime * 1000.0f);
+        }
+
+        if (ImGui::TreeNodeEx("OpenGL Details", ImGuiTreeNodeFlags_DefaultOpen))
         {
-            ImGui::Text("OpenGL Version:");
-            ImGui::Text(" -> %s", app->oglInfo.glVersion.c_str());
-
-            ImGui::Text("OpenGL Renderer:");
-            ImGui::Text(" -> %s", app->oglInfo.glRenderer.c_str());
-
-            ImGui::Text("OpenGL Vendor:");
-            ImGui::Text(" -> %s", app->oglInfo.glVendor.c_str());
-
-            ImGui::Text("OpenGL GLSL Version:");
-            ImGui::Text(" -> %s", app->oglInfo.glslVersion.c_str());
+            ImGui::Text("Renderer: %s", app->oglInfo.glRenderer.c_str());
+            ImGui::Text("Vendor: %s", app->oglInfo.glVendor.c_str());
+            ImGui::Text("Version: %s", app->oglInfo.glVersion.c_str());
+            ImGui::Text("GLSL Version: %s", app->oglInfo.glslVersion.c_str());
             ImGui::TreePop();
         }
 
-        // For extensions with a filter (optional)
-        static ImGuiTextFilter extensionsFilter;
-        char extensionsLabel[128];
-        snprintf(extensionsLabel, 128, "Extensions (%d)###Extensions", (int)app->oglInfo.glExtensions.size());
-
-        if (ImGui::TreeNodeEx(extensionsLabel, ImGuiTreeNodeFlags_DefaultOpen))
+        // Extensions List (in System Info)
+        if (ImGui::CollapsingHeader("OpenGL Extensions"))
         {
-            extensionsFilter.Draw("Filter");
-            ImGui::BeginChild("ExtensionsScrolling", ImVec2(0, 200), true);
+            static ImGuiTextFilter extensionsFilter;
+            extensionsFilter.Draw("Filter", 200);
+
+            ImGui::BeginChild("ExtensionsScrolling", ImVec2(0, 150), true);
             for (size_t i = 0; i < app->oglInfo.glExtensions.size(); i++)
             {
                 if (extensionsFilter.PassFilter(app->oglInfo.glExtensions[i].c_str()))
                 {
-                    ImGui::Text(" -> %s", app->oglInfo.glExtensions[i].c_str());
+                    ImGui::Text("%s", app->oglInfo.glExtensions[i].c_str());
                 }
             }
             ImGui::EndChild();
-            ImGui::TreePop();
         }
     }
+
+    // Scene Info Section
+    if (ImGui::CollapsingHeader("Scene Information", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        // Camera Position
+        // Position
+        ImGui::Text("Position:");
+        ImGui::Text("X: %7.2f", app->camera.Position.x);
+        ImGui::SameLine();
+        ImGui::Text("Y: %7.2f", app->camera.Position.y);
+        ImGui::SameLine();
+        ImGui::Text("Z: %7.2f", app->camera.Position.z);
+
+        ImGui::Text("Front: %5.2f, %5.2f, %5.2f", app->camera.Front.x, app->camera.Front.y, app->camera.Front.z);
+        ImGui::Text("Right: %5.2f, %5.2f, %5.2f", app->camera.Right.x, app->camera.Right.y, app->camera.Right.z);
+        ImGui::Text("Up:    %5.2f, %5.2f, %5.2f", app->camera.Up.x, app->camera.Up.y, app->camera.Up.z);
+
+        ImGui::Text("Pitch: %5.2f", app->camera.Pitch);
+        ImGui::Text("Yaw: %5.2f", app->camera.Yaw);
+
+        // Model/Light Counts
+        ImGui::Separator();
+        ImGui::Text("Loaded Models: %zu", app->models.size());
+        ImGui::Text("Active Lights: %zu", app->lights.size());
+    }
+
+    // Modifiers Section
+    if (ImGui::CollapsingHeader("Render Controls", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        // Current Mode Display
+        const char* modeNames[] = { "Textured Quad", "Textured Mesh", "FBO Render", "Deferred" };
+        ImGui::Text("Current Mode: %s", modeNames[app->mode]);
+
+        // Mode Selector
+        ImGui::Separator();
+        if (ImGui::Combo("Render Mode", reinterpret_cast<int*>(&app->mode),
+            "TexturedQuad\0TexturedMesh\0FBO\0Deferred\0"))
+        {
+            
+        }
+
+        // Display Mode Selector
+        ImGui::Separator();
+        if (ImGui::Combo("Buffer View", reinterpret_cast<int*>(&app->displayMode),
+            "Albedo\0Normals\0Positions\0Depth\0"))
+        {
+            Shader& quadShader = app->shaders[app->texturedGeometryShaderIdx];
+            quadShader.Use();
+            quadShader.SetBool("uIsDepth", app->displayMode == Depth);
+        }
+    }
+
     ImGui::End();
 }
 
@@ -506,7 +660,7 @@ void UpdateUBOs(App* app) {
     glm::mat4 view = app->camera.GetViewMatrix();
     glm::mat4 projection = glm::perspective(glm::radians(app->camera.Zoom),
         (float)app->displaySize.x / (float)app->displaySize.y,
-        0.1f, 100.0f
+        app->camera.z_near, app->camera.z_far
     );
 
     // Map buffer using utility
@@ -522,7 +676,7 @@ void UpdateUBOs(App* app) {
         world = glm::rotate(world, glm::radians(model.rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
         world = glm::scale(world, model.scale);
 
-        glm::mat4 mvp = projection * view * world;
+        glm::mat4 mvp = projection * view;
 
         // Push data with automatic alignment
         PushMat4(app->transformsUBO.buffer, world);      // Uses alignment from utilities
@@ -600,16 +754,11 @@ void Update(App* app)
     if (app->input.keys[Key::K_2] == BUTTON_RELEASE) {
         switch (app->mode)
         {
-        case Mode_TexturedQuad:
-            app->mode = Mode_TexturedMesh;
-            break;
-        case Mode_TexturedMesh:
-            app->mode = Mode_TexturedQuad;
-            break;
-        case Mode_Count:
-            break;
-        default:
-            break;
+        case Mode_TexturedQuad: app->mode = Mode_TexturedMesh; break;
+        case Mode_TexturedMesh: app->mode = Mode_FBORender; break;
+        case Mode_FBORender: app->mode = Mode_Deferred; break;
+        case Mode_Deferred: app->mode = Mode_TexturedQuad; break;
+        default: break;
         }
     }
 
@@ -666,36 +815,15 @@ void Render(App* app)
         case Mode_TexturedQuad:
         {
             if (app->enableDebugGroups) glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "TexturedQuad");
-            // TODO: Draw your textured quad here!
-            
-            
-
-            // - set the blending state
-            // - bind the texture into unit 0
-            // - bind the program 
-            //   (...and make its texture sample from unit 0)
-            // - bind the vao
             Shader& currentShader = app->shaders[app->texturedGeometryShaderIdx];
             currentShader.Use();
-            GL_CHECK(glBindVertexArray(app->vao));
-
-            GL_CHECK(glEnable(GL_BLEND));
-            GL_CHECK(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
-
-            GL_CHECK(glUniform1i(app->programUniformTexture, 0));
-            GL_CHECK(glActiveTexture(GL_TEXTURE0));
-            GLuint textureHandle = app->textures_2D[app->diceTexIdx].handle;
-            if (textureHandle == 0) {
-                ELOG("Invalid texture handle!");
-                return;
-            }
-            GL_CHECK(glBindTexture(GL_TEXTURE_2D, textureHandle));
-
-            // - glDrawElements() !!!
-            GL_CHECK(glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0));
-
-            GL_CHECK(glBindVertexArray(0));
-            GL_CHECK(glUseProgram(0));
+            currentShader.SetInt("uDisplayMode", 0);
+            glDisable(GL_DEPTH_TEST);
+            glBindVertexArray(app->vao);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, app->textures_2D[app->diceTexIdx].handle);
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
+            glEnable(GL_DEPTH_TEST);
 
             if (app->enableDebugGroups) glPopDebugGroup();
         }
@@ -703,6 +831,7 @@ void Render(App* app)
 
         case Mode_TexturedMesh:
         {
+            if (app->enableDebugGroups) glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 2, -1, "TexturedMesh");
             Shader& currentShader = app->shaders[app->texturedMeshShaderIdx];
             currentShader.Use();
 
@@ -716,8 +845,114 @@ void Render(App* app)
 
                 model.Draw(currentShader);
             }
+            if (app->enableDebugGroups) glPopDebugGroup();
         }
-        break;        
+        break;
+
+        case Mode_FBORender: {
+            if (app->enableDebugGroups) glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 3, -1, "FBOTextures");
+
+            // --- Geometry Pass ---
+            glBindFramebuffer(GL_FRAMEBUFFER, app->fboHandle);
+            glViewport(0, 0, app->displaySize.x, app->displaySize.y);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+            // Use geometry pass shader instead of textured mesh shader
+            Shader& geoShader = app->shaders[app->geometryPassShaderIdx];
+            geoShader.Use();
+
+            glBindBufferRange(GL_UNIFORM_BUFFER, 0, app->globalParamsUBO.buffer.handle, 0, app->globalParamsUBO.blockSize);
+            for (Model& model : app->models) {
+                glBindBufferRange(GL_UNIFORM_BUFFER, 1, app->transformsUBO.buffer.handle, model.bufferOffset, app->transformsUBO.blockSize);
+                model.Draw(geoShader);
+            }
+
+            // --- Display Pass ---
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            glDisable(GL_DEPTH_TEST);
+            glClear(GL_COLOR_BUFFER_BIT);
+
+            Shader& displayShader = app->shaders[app->texturedGeometryShaderIdx];
+            displayShader.Use();
+            displayShader.SetInt("uDisplayMode", app->displayMode);
+
+            glActiveTexture(GL_TEXTURE0);
+            switch (app->displayMode) {
+            case Albedo:
+                glBindTexture(GL_TEXTURE_2D, app->albedoTexture);
+                break;
+            case Normals:
+                glBindTexture(GL_TEXTURE_2D, app->normalTexture);
+                break;
+            case Positions:
+                glBindTexture(GL_TEXTURE_2D, app->positionTexture);
+                break;
+            case Depth:
+                glBindTexture(GL_TEXTURE_2D, app->depthTexture);
+                glTexParameteri(GL_TEXTURE_2D, GL_DEPTH_STENCIL_TEXTURE_MODE, GL_DEPTH_COMPONENT);
+                break;
+            }
+
+            glBindVertexArray(app->vao);
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
+            glEnable(GL_DEPTH_TEST);
+
+            if (app->enableDebugGroups) glPopDebugGroup();
+        }
+        break;
+
+        case Mode_Deferred: {
+
+            if (app->enableDebugGroups) glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 4, -1, "Deferred");
+
+            // --- Geometry Pass ---
+            glBindFramebuffer(GL_FRAMEBUFFER, app->fboHandle);
+            glViewport(0, 0, app->displaySize.x, app->displaySize.y);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+            // Use geometry pass shader
+            Shader& geoShader = app->shaders[app->geometryPassShaderIdx];
+            geoShader.Use();
+
+            // Render scene to G-buffer
+            glBindBufferRange(GL_UNIFORM_BUFFER, 0, app->globalParamsUBO.buffer.handle, 0, app->globalParamsUBO.blockSize);
+            for (Model& model : app->models) {
+                glBindBufferRange(GL_UNIFORM_BUFFER, 1,
+                    app->transformsUBO.buffer.handle,
+                    model.bufferOffset,
+                    app->transformsUBO.blockSize);
+                model.Draw(geoShader);
+            }
+
+            // --- Lighting Pass ---
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            glDisable(GL_DEPTH_TEST);
+            glClear(GL_COLOR_BUFFER_BIT);
+
+            Shader& lightShader = app->shaders[app->deferredShaderIdx];
+            lightShader.Use();
+
+            // Bind G-buffer textures
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, app->albedoTexture);
+            lightShader.SetInt("gAlbedo", 0);
+
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, app->normalTexture);
+            lightShader.SetInt("gNormal", 1);
+
+            glActiveTexture(GL_TEXTURE2);
+            glBindTexture(GL_TEXTURE_2D, app->positionTexture);
+            lightShader.SetInt("gPosition", 2);
+
+            // Render fullscreen quad
+            glBindVertexArray(app->vao);
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
+            glEnable(GL_DEPTH_TEST);
+
+            if (app->enableDebugGroups) glPopDebugGroup();
+        }
+        break;
 
         default:;
     }

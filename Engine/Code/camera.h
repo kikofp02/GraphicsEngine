@@ -16,9 +16,12 @@ enum Movement {
 
 const float DEFAULT_YAW = -90.0f;
 //const float DEFAULT_PITCH = 0.0f;
-const float DEFAULT_SPEED = 2.5f;
+const float DEFAULT_SPEED = 15.f;
 const float DEFAULT_SENSITIVITY = 0.1f;
 const float DEFAULT_ZOOM = 45.0f;
+
+const float Z_NEAR = 1.0f;
+const float Z_FAR = 500.f;
 
 class Camera {
 public:
@@ -38,6 +41,9 @@ public:
     float MouseSensitivity;
     float Zoom;
 
+    float z_near;
+    float z_far;
+
     // Constructors
     Camera(glm::vec3 position = glm::vec3(0.0f),
         glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f),
@@ -52,6 +58,10 @@ public:
         WorldUp = up;
         Yaw = yaw;
         Pitch = pitch;
+
+        z_near = Z_NEAR;
+        z_far = Z_FAR;
+
         UpdateVectors();
     }
 
@@ -94,7 +104,7 @@ public:
         Zoom = glm::clamp(Zoom, 1.0f, 45.0f);
     }
 
-private:
+
     // Update camera vectors
     inline void UpdateVectors() {
         // Calculate new Front vector

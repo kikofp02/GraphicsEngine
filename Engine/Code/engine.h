@@ -32,7 +32,17 @@ enum Mode
 {
     Mode_TexturedQuad,
     Mode_TexturedMesh,
+    Mode_FBORender,
+    Mode_Deferred,
     Mode_Count
+};
+
+enum DisplayMode
+{
+    Albedo,
+    Normals,
+    Positions,
+    Depth
 };
 
 struct OpenGLInfo {
@@ -100,6 +110,7 @@ struct App
     // program indices
     u32 texturedGeometryShaderIdx;
     u32 texturedMeshShaderIdx;
+    u32 deferredShaderIdx;
         
     // texture indices
     u32 diceTexIdx;
@@ -118,6 +129,17 @@ struct App
     UniformBuffer globalParamsUBO;
 
     f32 time;
+
+    // Framebuffer resources
+    GLuint fboHandle;
+    GLuint albedoTexture;
+    GLuint normalTexture;
+    GLuint positionTexture;
+    GLuint depthTexture;
+
+    u32 geometryPassShaderIdx;
+
+    DisplayMode displayMode;
 
     // Embedded geometry (in-editor simple meshes such as
     // a screen filling quad, a cube, a sphere...)
@@ -139,3 +161,4 @@ void Update(App* app);
 
 void Render(App* app);
 
+void ResizeFBO(App* app);
