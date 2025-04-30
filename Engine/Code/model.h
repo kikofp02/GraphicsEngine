@@ -49,7 +49,6 @@ public:
     Mesh() = default;
 
     void SetupMesh() {
-        // Calculate total buffer sizes
         size_t totalVertices = 0;
         size_t totalIndices = 0;
 
@@ -58,7 +57,7 @@ public:
             totalIndices += submesh.indices.size();
         }
 
-        // Create and bind buffers
+        // Create Buffers
         glGenVertexArrays(1, &VAO);
         glGenBuffers(1, &VBO);
         glGenBuffers(1, &EBO);
@@ -70,18 +69,15 @@ public:
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, totalIndices * sizeof(u32), nullptr, GL_STATIC_DRAW);
 
-        // Upload submesh data and set offsets
         size_t vertexOffset = 0;
         size_t indexOffset = 0;
 
         for (auto& submesh : submeshes) {
-            // Upload vertices
             glBufferSubData(GL_ARRAY_BUFFER,
                 vertexOffset * sizeof(Vertex),
                 submesh.vertices.size() * sizeof(Vertex),
                 submesh.vertices.data());
 
-            // Upload indices (adjust indices for vertex offset)
             std::vector<u32> adjustedIndices = submesh.indices;
             for (auto& index : adjustedIndices) {
                 index += vertexOffset;
@@ -99,7 +95,6 @@ public:
             indexOffset += adjustedIndices.size();
         }
 
-        // Vertex attributes
         glEnableVertexAttribArray(0);
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
 
@@ -122,7 +117,6 @@ public:
         glBindVertexArray(VAO);
 
         for (const auto& submesh : submeshes) {
-            // Bind textures
             u32 diffuseNr = 1;
             u32 specularNr = 1;
             u32 normalNr = 1;
@@ -213,23 +207,19 @@ private:
 
         directory = path.substr(0, path.find_last_of('/'));
 
-        // Create one main mesh that will contain all submeshes
         Mesh mainMesh;
         ProcessNode(scene->mRootNode, scene, mainMesh);
 
-        // Setup the mesh buffers after processing all nodes
         mainMesh.SetupMesh();
         meshes.push_back(mainMesh);
     }
 
     void ProcessNode(aiNode* node, const aiScene* scene, Mesh& mesh) {
-        // Process all the node's meshes
         for (u32 i = 0; i < node->mNumMeshes; i++) {
             aiMesh* aiMesh = scene->mMeshes[node->mMeshes[i]];
             mesh.submeshes.push_back(ProcessSubmesh(aiMesh, scene));
         }
 
-        // Process children
         for (u32 i = 0; i < node->mNumChildren; i++) {
             ProcessNode(node->mChildren[i], scene, mesh);
         }
@@ -238,7 +228,6 @@ private:
     Submesh ProcessSubmesh(aiMesh* mesh, const aiScene* scene) {
         Submesh submesh;
 
-        // Process vertices
         for (u32 i = 0; i < mesh->mNumVertices; i++) {
             Vertex vertex;
             vertex.Position = glm::vec3(mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z);
@@ -256,7 +245,6 @@ private:
             submesh.vertices.push_back(vertex);
         }
 
-        // Process indices
         for (u32 i = 0; i < mesh->mNumFaces; i++) {
             aiFace face = mesh->mFaces[i];
             for (u32 j = 0; j < face.mNumIndices; j++) {
@@ -264,7 +252,6 @@ private:
             }
         }
 
-        // Process material
         if (mesh->mMaterialIndex >= 0) {
             aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
 
@@ -277,7 +264,7 @@ private:
             submesh.textures.insert(submesh.textures.end(), specularMaps.begin(), specularMaps.end());
 
             std::vector<Texture> normalMaps = LoadMaterialTextures(
-                material, aiTextureType_NORMALS, "texture_normal");  // Use NORMALS not HEIGHT
+                material, aiTextureType_NORMALS, "texture_normal");
             submesh.textures.insert(submesh.textures.end(), normalMaps.begin(), normalMaps.end());
 
             std::vector<Texture> heightMaps = LoadMaterialTextures(

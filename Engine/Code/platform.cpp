@@ -23,7 +23,7 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 
-#define WINDOW_TITLE  "Advanced Graphics Programming"
+#define WINDOW_TITLE  "Francisco Ferreros Puigmarti - Deferred Exercise"
 #define WINDOW_WIDTH  800
 #define WINDOW_HEIGHT 600
 

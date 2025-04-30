@@ -133,7 +133,6 @@ void MapBuffer(Buffer& buffer, GLenum access)
     void* ptr = glMapBuffer(buffer.type, access);
     buffer.data = (u8*)ptr;
 
-    //buffer.data = (u8*)glMapBuffer(buffer.type, access);
     buffer.head = 0;
 }
 
@@ -206,19 +205,16 @@ Model GeneratePlaneModel(App* app, float size, int subdivisions, const std::stri
             int bottomLeft = (z + 1) * (subdivisions + 1) + x;
             int bottomRight = bottomLeft + 1;
 
-            // First triangle
             planeSubmesh.indices.push_back(topLeft);
             planeSubmesh.indices.push_back(bottomLeft);
             planeSubmesh.indices.push_back(topRight);
 
-            // Second triangle
             planeSubmesh.indices.push_back(topRight);
             planeSubmesh.indices.push_back(bottomLeft);
             planeSubmesh.indices.push_back(bottomRight);
         }
     }
 
-    // Load and assign texture
     u32 texIdx = LoadTexture2D(app, texturePath.c_str());
     if (texIdx != UINT32_MAX) {
         Texture texture;
@@ -226,9 +222,7 @@ Model GeneratePlaneModel(App* app, float size, int subdivisions, const std::stri
         texture.type = "texture_diffuse";
         texture.path = texturePath;
 
-        // Add to model's loaded textures
         model.textures_loaded.push_back(texture);
-        // Add to submesh textures
         planeSubmesh.textures.push_back(texture);
     }
 
@@ -297,11 +291,11 @@ void InitTexturedQuad(App* app) {
 }
 
 void InitBuffer(App* app) {
-    // Create Framebuffer Object (FBO)
+    // Create FBO
     glGenFramebuffers(1, &app->fboHandle);
     glBindFramebuffer(GL_FRAMEBUFFER, app->fboHandle);
 
-    // Albedo texture (Color Attachment 0)
+    // Albedo
     glGenTextures(1, &app->albedoTexture);
     glBindTexture(GL_TEXTURE_2D, app->albedoTexture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, app->displaySize.x, app->displaySize.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
@@ -309,7 +303,7 @@ void InitBuffer(App* app) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, app->albedoTexture, 0);
 
-    // Normal texture (Color Attachment 1)
+    // Normal
     glGenTextures(1, &app->normalTexture);
     glBindTexture(GL_TEXTURE_2D, app->normalTexture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, app->displaySize.x, app->displaySize.y, 0, GL_RGB, GL_FLOAT, NULL);
@@ -317,7 +311,7 @@ void InitBuffer(App* app) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, app->normalTexture, 0);
 
-    // Position (GL_RGB32F for accurate positions)
+    // Position
     glGenTextures(1, &app->positionTexture);
     glBindTexture(GL_TEXTURE_2D, app->positionTexture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, app->displaySize.x, app->displaySize.y, 0, GL_RGB, GL_FLOAT, NULL);
@@ -325,7 +319,7 @@ void InitBuffer(App* app) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, app->positionTexture, 0);
 
-    // Depth texture
+    // Depth
     glGenTextures(1, &app->depthTexture);
     glBindTexture(GL_TEXTURE_2D, app->depthTexture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, app->displaySize.x, app->displaySize.y, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
@@ -333,11 +327,9 @@ void InitBuffer(App* app) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, app->depthTexture, 0);
 
-    // Specify draw buffers
     GLenum drawBuffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
     glDrawBuffers(3, drawBuffers);
 
-    // Check FBO completeness
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
         ELOG("FBO initialization failed!");
     }
@@ -362,7 +354,6 @@ void Init(App* app)
         app->oglInfo.glExtensions.push_back(std::string(reinterpret_cast<const char*>(glGetString(GL_SHADING_LANGUAGE_VERSION))));
     }
 
-    // TODO: Initialize your resources here!
     app->mode = Mode_TexturedMesh;
     app->displayMode = Albedo;
 
@@ -391,47 +382,40 @@ void Init(App* app)
     app->models.push_back(planeModel);
     app->models.back().scale = glm::vec3(4.0f, 1.0f, 4.0f);
 
-    //Patricks
+    // Patricks
     Model patrickModel("Patrick/Patrick.obj");
-    // Define grid parameters
-    int countPerSide = 4; // 3x3 grid (9 Patricks total)
-    float spacing = 15.0f; // Space between models (adjust based on Patrick's size)
+    int countPerSide = 4;
+    float spacing = 15.0f;
 
-    // Calculate starting position to center the grid
     float totalWidth = (countPerSide - 1) * spacing;
     float startX = -totalWidth / 2.0f;
     float startZ = -totalWidth / 2.0f;
 
-    // Create grid of Patricks
     for (int z = 0; z < countPerSide; ++z) {
         for (int x = 0; x < countPerSide; ++x) {
-            // Create a copy of the original model
             Model patrickCopy = patrickModel;
 
-            // Calculate position (keep original Y, offset X and Z)
             patrickCopy.position = glm::vec3(
-                startX + x * spacing,  // X position
-                3.4f, // Keep original Y
-                startZ + z * spacing   // Z position
+                startX + x * spacing,   // X position
+                3.4f,                   // Y position
+                startZ + z * spacing    // Z position
             );
-
-            // Add to models list
             app->models.push_back(patrickCopy);
         }
     }
 
     // Lights
-    Light sun1;
-    sun1.type = LightType_Directional;
-    sun1.color = glm::vec3(1.0f, 0.9f, 0.8f);
-    sun1.direction = glm::vec3(-0.5f, -1.0f, -0.5f);
-    app->lights.push_back(sun1);
+    Light dir1;
+    dir1.type = LightType_Directional;
+    dir1.color = glm::vec3(1.0f, 0.9f, 0.8f);
+    dir1.direction = glm::vec3(-0.5f, -1.0f, -0.5f);
+    app->lights.push_back(dir1);
 
-    Light sun2;
-    sun1.type = LightType_Directional;
-    sun2.color = glm::vec3(0.5f, 0.6f, 0.8f);
-    sun2.direction = glm::vec3(0.5f, -1.0f, 0.2f);
-    app->lights.push_back(sun2);
+    /*Light dir2;
+    dir2.type = LightType_Directional;
+    dir2.color = glm::vec3(0.5f, 0.6f, 0.8f);
+    dir2.direction = glm::vec3(0.5f, -1.0f, 0.2f);
+    app->lights.push_back(dir2);*/
 
     const int lights_gridSize = 4;
     const float lights_spacing = 15.0f;
@@ -461,11 +445,9 @@ void Init(App* app)
     GL_CHECK(glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT,
         reinterpret_cast<GLint*>(&app->transformsUBO.alignment)));
 
-    // Calculate block size with alignment
     app->transformsUBO.blockSize = (2 * sizeof(glm::mat4));
     app->transformsUBO.blockSize = Align(app->transformsUBO.blockSize, app->transformsUBO.alignment);
 
-    // Create buffer using utilities
     app->transformsUBO.buffer = CreateBuffer(
         app->transformsUBO.blockSize * app->models.size(),
         GL_UNIFORM_BUFFER,
@@ -476,9 +458,9 @@ void Init(App* app)
     GL_CHECK(glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT,
         reinterpret_cast<GLint*>(&app->globalParamsUBO.alignment)));
 
-    size_t cameraPosSize = sizeof(glm::vec4); // vec3 + padding
-    size_t lightCountSize = sizeof(glm::uvec4); // uint + padding (to vec4)
-    size_t lightSize = 4 * sizeof(glm::vec4); // uint (as vec4) + 3 vec4s
+    size_t cameraPosSize = sizeof(glm::vec4);
+    size_t lightCountSize = sizeof(glm::uvec4);
+    size_t lightSize = 4 * sizeof(glm::vec4);
     app->globalParamsUBO.blockSize = cameraPosSize + lightCountSize + app->lights.size() * lightSize;
     app->globalParamsUBO.blockSize = Align(app->globalParamsUBO.blockSize, app->globalParamsUBO.alignment);
 
@@ -559,12 +541,10 @@ void Gui(App* app)
             static int frameOffset = 0;
             static float maxFrameTime = 0.0f;
 
-            // Update frame time history
-            frameTimes[frameOffset] = app->deltaTime * 1000.0f; // Convert to milliseconds
+            frameTimes[frameOffset] = app->deltaTime * 1000.0f;
             frameOffset = (frameOffset + 1) % IM_ARRAYSIZE(frameTimes);
             maxFrameTime = *std::max_element(frameTimes, frameTimes + IM_ARRAYSIZE(frameTimes)) * 1.1f;
 
-            // Display frame time graph
             ImGui::PlotLines("Frame Time (ms)", frameTimes, IM_ARRAYSIZE(frameTimes), frameOffset,
                 nullptr, 0.0f, maxFrameTime, ImVec2(300, 60));
 
@@ -581,7 +561,7 @@ void Gui(App* app)
             ImGui::TreePop();
         }
 
-        // Extensions List (in System Info)
+        // Extensions List
         if (ImGui::CollapsingHeader("OpenGL Extensions"))
         {
             static ImGuiTextFilter extensionsFilter;
@@ -603,7 +583,6 @@ void Gui(App* app)
     if (ImGui::CollapsingHeader("Scene Information", ImGuiTreeNodeFlags_DefaultOpen))
     {
         // Camera Position
-        // Position
         ImGui::Text("Position:");
         ImGui::Text("X: %7.2f", app->camera.Position.x);
         ImGui::SameLine();
@@ -618,7 +597,7 @@ void Gui(App* app)
         ImGui::Text("Pitch: %5.2f", app->camera.Pitch);
         ImGui::Text("Yaw: %5.2f", app->camera.Yaw);
 
-        // Model/Light Counts
+        // Models/Lights
         ImGui::Separator();
         ImGui::Text("Loaded Models: %zu", app->models.size());
         ImGui::Text("Active Lights: %zu", app->lights.size());
@@ -627,7 +606,7 @@ void Gui(App* app)
     // Modifiers Section
     if (ImGui::CollapsingHeader("Render Controls", ImGuiTreeNodeFlags_DefaultOpen))
     {
-        // Current Mode Display
+        // Current Mode
         const char* modeNames[] = { "Textured Quad", "Textured Mesh", "FBO Render", "Deferred" };
         ImGui::Text("Current Mode: %s", modeNames[app->mode]);
 
@@ -663,14 +642,12 @@ void UpdateUBOs(App* app) {
         app->camera.z_near, app->camera.z_far
     );
 
-    // Map buffer using utility
     MapBuffer(app->transformsUBO.buffer, GL_WRITE_ONLY);
     app->transformsUBO.currentOffset = 0;
 
     for (auto& model : app->models) {
         size_t blockStart = app->transformsUBO.currentOffset;
 
-        // Calculate matrices
         glm::mat4 world = glm::mat4(1.0f);
         world = glm::translate(world, model.position);
         world = glm::rotate(world, glm::radians(model.rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
@@ -678,45 +655,35 @@ void UpdateUBOs(App* app) {
 
         glm::mat4 mvp = projection * view;
 
-        // Push data with automatic alignment
-        PushMat4(app->transformsUBO.buffer, world);      // Uses alignment from utilities
-        PushMat4(app->transformsUBO.buffer, mvp);        // Auto-aligns after first matrix
+        PushMat4(app->transformsUBO.buffer, world);
+        PushMat4(app->transformsUBO.buffer, mvp);
 
         AlignHead(app->transformsUBO.buffer, app->transformsUBO.blockSize);
 
-        // Store model metadata
         model.bufferOffset = blockStart;
         model.bufferSize = app->transformsUBO.blockSize;
 
-        // Advance to next block
         app->transformsUBO.currentOffset += app->transformsUBO.blockSize;
     }
 
-    // Finalize using utility
     UnmapBuffer(app->transformsUBO.buffer);
-
 
     // Global UBO
     MapBuffer(app->globalParamsUBO.buffer, GL_WRITE_ONLY);
 
-    // Camera position
     PushVec3(app->globalParamsUBO.buffer, app->camera.Position);
-
-    // Light count
     PushUInt(app->globalParamsUBO.buffer, static_cast<u32>(app->lights.size()));
 
     // Lights array
     for (auto& light : app->lights) {
-        AlignHead(app->globalParamsUBO.buffer, 16); // Align start of each Light struct
+        AlignHead(app->globalParamsUBO.buffer, 16);
 
         PushUInt(app->globalParamsUBO.buffer, static_cast<u32>(light.type));
-        AlignHead(app->globalParamsUBO.buffer, 16); // Add 12 bytes padding after type
+        AlignHead(app->globalParamsUBO.buffer, 16);
 
         PushVec3(app->globalParamsUBO.buffer, light.color);
         PushVec3(app->globalParamsUBO.buffer, light.direction);
         PushVec4(app->globalParamsUBO.buffer, glm::vec4(light.position, light.range));
-        // TODO pass range and use it?
-        //Push(app->globalParamsUBO.buffer, light.range);
     }
 
     UnmapBuffer(app->globalParamsUBO.buffer);
@@ -733,17 +700,16 @@ void Update(App* app)
     UpdateUBOs(app);
 
     if (!app->models.empty()) {
-        float speed = 1.0f; // Adjust speed as needed
-        float radius = 2.0f; // Adjust movement radius as needed
+        float speed = 1.0f;
+        float radius = 2.0f;
 
-        // Calculate new position using sine/cosine for circular motion
+        // Circular motion
         //app->models[0].position.x = sin(app->time * speed) * radius;
         //app->models[0].position.z = cos(app->time * speed) * radius;
 
-        // You could also add simple rotation
         for (size_t i = 1; i < app->models.size(); ++i)
         {
-            app->models[i].rotation.y = fmod(app->time * 30.0f * (i*i), 360.0f); // 30 degrees per second
+            app->models[i].rotation.y = fmod(app->time * 30.0f * (i*i), 360.0f);
         }
     }
 
@@ -763,7 +729,6 @@ void Update(App* app)
     }
 
     // Camera Update
-    // Handle camera movement
     if (app->input.keys[Key::K_W] == BUTTON_PRESSED)
         app->camera.ProcessKeyboard(M_FORWARD, app->deltaTime);
     if (app->input.keys[Key::K_S] == BUTTON_PRESSED)
@@ -777,7 +742,6 @@ void Update(App* app)
     if (app->input.keys[Key::K_CTRL] == BUTTON_PRESSED)
         app->camera.ProcessKeyboard(M_DOWN, app->deltaTime);
 
-    // Handle mouse movement for camera look
     if (app->input.mouseButtons[MouseButton::RIGHT] == BUTTON_PRESSED)
     {
         float xoffset = app->input.mouseDelta.x;
@@ -785,7 +749,7 @@ void Update(App* app)
         app->camera.ProcessMouseMovement(xoffset, yoffset);
     }
 
-    //// Handle mouse scroll for zoom
+    // TODO_K: Mouse scroll
     //if (app->input.mouseWheelDelta != 0)
     //{
     //    app->camera.ProcessMouseScroll(app->input.mouseWheelDelta);
@@ -857,7 +821,6 @@ void Render(App* app)
             glViewport(0, 0, app->displaySize.x, app->displaySize.y);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            // Use geometry pass shader instead of textured mesh shader
             Shader& geoShader = app->shaders[app->geometryPassShaderIdx];
             geoShader.Use();
 
@@ -910,11 +873,9 @@ void Render(App* app)
             glViewport(0, 0, app->displaySize.x, app->displaySize.y);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            // Use geometry pass shader
             Shader& geoShader = app->shaders[app->geometryPassShaderIdx];
             geoShader.Use();
 
-            // Render scene to G-buffer
             glBindBufferRange(GL_UNIFORM_BUFFER, 0, app->globalParamsUBO.buffer.handle, 0, app->globalParamsUBO.blockSize);
             for (Model& model : app->models) {
                 glBindBufferRange(GL_UNIFORM_BUFFER, 1,
@@ -932,7 +893,6 @@ void Render(App* app)
             Shader& lightShader = app->shaders[app->deferredShaderIdx];
             lightShader.Use();
 
-            // Bind G-buffer textures
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, app->albedoTexture);
             lightShader.SetInt("gAlbedo", 0);
@@ -945,7 +905,6 @@ void Render(App* app)
             glBindTexture(GL_TEXTURE_2D, app->positionTexture);
             lightShader.SetInt("gPosition", 2);
 
-            // Render fullscreen quad
             glBindVertexArray(app->vao);
             glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
             glEnable(GL_DEPTH_TEST);

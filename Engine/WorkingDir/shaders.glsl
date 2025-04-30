@@ -6,7 +6,6 @@
 
 #if defined(VERTEX) ///////////////////////////////////////////////////
 
-// TODO: Write your vertex shader here
 layout(location=0) in vec3 aPosition;
 layout(location=1) in vec2 aTexCoord;
 
@@ -27,11 +26,11 @@ in vec2 vTexCoord;
 out vec4 oColor;
 
 vec3 normalToColor(vec3 n) {
-    return (n + 1.0) * 0.5; // Map [-1,1] to [0,1]
+    return (n + 1.0) * 0.5;
 }
 
 vec3 positionToColor(vec3 p) {
-    return fract(p * 0.1); // Visualize world position
+    return fract(p * 0.1);
 }
 
 void main() {
@@ -128,11 +127,9 @@ layout(std140, binding = 0) uniform GlobalParams {
 layout(location = 0) out vec4 oColor;
 
 vec3 CalculateDirectionalLight(uint index, vec3 normal, vec3 viewDir) {
-    // Quad calculation (full-screen effect)
     vec3 lightDir = normalize(-uLight[index].direction.xyz);
     float diff = max(dot(normal, lightDir), 0.0);
     
-    // Simple specular
     vec3 reflectDir = reflect(-lightDir, normal);
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
     
@@ -140,7 +137,6 @@ vec3 CalculateDirectionalLight(uint index, vec3 normal, vec3 viewDir) {
 }
 
 vec3 CalculatePointLight(uint index, vec3 normal, vec3 viewDir) {
-    // Sphere calculation
     vec3 lightPos = uLight[index].position.xyz;
     float range = uLight[index].position.w;
     
@@ -150,11 +146,9 @@ vec3 CalculatePointLight(uint index, vec3 normal, vec3 viewDir) {
     
     vec3 lightDir = normalize(lightVec);
     float diff = max(dot(normal, lightDir), 0.0);
-    
-    // Attenuation
+
     float attenuation = 1.0 - smoothstep(range * 0.75, range, distance);
-    
-    // Specular
+
     vec3 reflectDir = reflect(-lightDir, normal);
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
     
@@ -163,21 +157,18 @@ vec3 CalculatePointLight(uint index, vec3 normal, vec3 viewDir) {
 
 void main()
 {
-    // Basic surface properties
     vec3 norm = normalize(vNormal);
     vec3 viewDir = normalize(uCameraPosition - vFragPos);
     vec3 result = vec3(0.0);
 
-    // Calculate lighting contributions
     for(uint i = 0u; i < uLightCount; i++) {
-        if(uLight[i].type == 0u) { // Directional light
+        if(uLight[i].type == 0u) {
             result += CalculateDirectionalLight(i, norm, viewDir);
-        } else { // Point light
+        } else {
             result += CalculatePointLight(i, norm, viewDir);
         }
     }
 
-    // Combine with texture
     vec4 texColor = texture(uTexture, vTexCoord);
     oColor = vec4(result * texColor.rgb, texColor.a);
     //oColor = vec4(norm * 0.5 + 0.5, 1.0);
@@ -194,7 +185,6 @@ layout(location=0) in vec3 aPosition;
 layout(location=1) in vec3 aNormal;
 layout(location=2) in vec2 aTexCoord;
 
-// Uniforms remain the same
 layout(std140, binding=1) uniform TransformBlock {
     mat4 uModelMatrix;
     mat4 uViewProjectionMatrix;
@@ -225,16 +215,16 @@ layout(location = 1) out vec3 oNormal;
 layout(location = 2) out vec3 oPosition;
 
 void main() {
-    // Albedo with alpha
+    // Albedo
     oAlbedo = texture(uTexture, vTexCoord);
     
-    // World-space normal [-1,1]
+    // Normal
     oNormal = normalize(vNormal);
     
-    // World-space position
+    // Position
     oPosition = vFragPos;
     
-    // Depth handled automatically
+    // Depth
 }
 #endif
 #endif
@@ -243,7 +233,6 @@ void main() {
 #ifdef DEFERRED_LIGHTING
 
 #if defined(VERTEX)
-// Same as textured quad vertex shader
 layout(location=0) in vec3 aPosition;
 layout(location=1) in vec2 aTexCoord;
 
@@ -284,11 +273,9 @@ layout(std140, binding = 1) uniform TransformBlock {
 
 
 vec3 CalculateDirectionalLight(uint index, vec3 normal, vec3 viewDir) {
-    // Quad calculation (full-screen effect)
     vec3 lightDir = normalize(-uLight[index].direction.xyz);
     float diff = max(dot(normal, lightDir), 0.0);
     
-    // Simple specular
     vec3 reflectDir = reflect(-lightDir, normal);
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
     
@@ -296,7 +283,6 @@ vec3 CalculateDirectionalLight(uint index, vec3 normal, vec3 viewDir) {
 }
 
 vec3 CalculatePointLight(uint index, vec3 normal, vec3 fragPos, vec3 viewDir) {
-    // Sphere calculation
     vec3 lightPos = uLight[index].position.xyz;
     float range = uLight[index].position.w;
     
@@ -306,11 +292,9 @@ vec3 CalculatePointLight(uint index, vec3 normal, vec3 fragPos, vec3 viewDir) {
     
     vec3 lightDir = normalize(lightVec);
     float diff = max(dot(normal, lightDir), 0.0);
-    
-    // Attenuation
+
     float attenuation = 1.0 - smoothstep(range * 0.75, range, distance);
     
-    // Specular
     vec3 reflectDir = reflect(-lightDir, normal);
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
     
@@ -319,7 +303,7 @@ vec3 CalculatePointLight(uint index, vec3 normal, vec3 fragPos, vec3 viewDir) {
 
 void main()
 {
-    // Retrieve G-buffer data
+    // G-buffer data
     vec3 albedo = texture(gAlbedo, vTexCoord).rgb;
     vec3 normal = normalize(texture(gNormal, vTexCoord).rgb);
     vec3 fragPos = texture(gPosition, vTexCoord).rgb;
@@ -328,9 +312,9 @@ void main()
 
     vec3 result = vec3(0.0);
     for(uint i = 0u; i < uLightCount; i++) {
-        if(uLight[i].type == 0u) { // Directional light
+        if(uLight[i].type == 0u) {
             result += CalculateDirectionalLight(i, normal, viewDir);
-        } else { // Point light
+        } else {
             result += CalculatePointLight(i, normal, fragPos, viewDir);
         }
     }

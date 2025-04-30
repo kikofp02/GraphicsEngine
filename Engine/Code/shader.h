@@ -27,7 +27,6 @@ public:
     u64 lastWriteTimestamp;
     VertexShaderLayout vertexInputLayout;
 
-    // Constructor that creates shader from single source file with defines
     Shader(const char* filepath, const char* programName)
     {
         this->filepath = filepath;
@@ -37,7 +36,6 @@ public:
         SetupVertexAttributes();
     }
 
-    // Activate the shader
     void Use() const
     {
         GL_CHECK(glUseProgram(handle));
@@ -104,7 +102,6 @@ public:
         GL_CHECK(glUniformMatrix4fv(glGetUniformLocation(handle, name.c_str()), 1, GL_FALSE, &mat[0][0]));
     }
 
-    // Reload shader if source file has changed
     bool ReloadIfNeeded()
     {
         u64 currentTimestamp = GetFileLastWriteTimestamp(filepath.c_str());
