@@ -33,10 +33,18 @@ struct Texture {
     std::string path;
 };
 
+struct Material {
+    std::vector<Texture> diffuse;
+    std::vector<Texture> specular;
+    std::vector<Texture> normal;
+    std::vector<Texture> height;
+    // TODO_K: Add more if needed (AO, Metalic...)
+};
+
 struct Submesh {
     std::vector<Vertex> vertices;
     std::vector<u32> indices;
-    std::vector<Texture> textures;
+    Material material;
     u32 vertexOffset;
     u32 indexOffset;
 };
@@ -116,30 +124,34 @@ public:
     void Draw(const Shader& shader) const {
         glBindVertexArray(VAO);
 
+        shader.SetInt("material.diffuse", 0);
+        shader.SetInt("material.specular", 1);
+        shader.SetInt("material.normal", 2);
+        shader.SetInt("material.height", 3);
+
         for (const auto& submesh : submeshes) {
-            u32 diffuseNr = 1;
-            u32 specularNr = 1;
-            u32 normalNr = 1;
-            u32 heightNr = 1;
-
-            for (u32 i = 0; i < submesh.textures.size(); i++) {
-                glActiveTexture(GL_TEXTURE0 + i);
-
-                std::string number;
-                std::string name = submesh.textures[i].type;
-                if (name == "texture_diffuse")
-                    number = std::to_string(diffuseNr++);
-                else if (name == "texture_specular")
-                    number = std::to_string(specularNr++);
-                else if (name == "texture_normal")
-                    number = std::to_string(normalNr++);
-                else if (name == "texture_height")
-                    number = std::to_string(heightNr++);
-
-                shader.SetInt((name + number).c_str(), i);
-                glBindTexture(GL_TEXTURE_2D, submesh.textures[i].id);
+            if (!submesh.material.diffuse.empty()) {
+                const auto& tex = submesh.material.diffuse.front();
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, tex.id);
             }
 
+            if (!submesh.material.specular.empty()) {
+                glActiveTexture(GL_TEXTURE1);
+                glBindTexture(GL_TEXTURE_2D, submesh.material.specular.front().id);
+            }
+
+            if (!submesh.material.normal.empty()) {
+                glActiveTexture(GL_TEXTURE2);
+                glBindTexture(GL_TEXTURE_2D, submesh.material.normal.front().id);
+            }
+
+            if (!submesh.material.height.empty()) {
+                glActiveTexture(GL_TEXTURE3);
+                glBindTexture(GL_TEXTURE_2D, submesh.material.height.front().id);
+            }
+
+            // Draw elements
             glDrawElements(GL_TRIANGLES,
                 submesh.indices.size(),
                 GL_UNSIGNED_INT,
@@ -172,15 +184,6 @@ public:
     }
 
     void Draw(Shader& shader) {
-        glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model, position);
-        model = glm::rotate(model, glm::radians(rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
-        model = glm::rotate(model, glm::radians(rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
-        model = glm::rotate(model, glm::radians(rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
-        model = glm::scale(model, scale);
-
-        shader.SetMat4("uModel", model);
-
         for (auto& mesh : meshes) {
             mesh.Draw(shader);
         }
@@ -255,21 +258,26 @@ private:
         if (mesh->mMaterialIndex >= 0) {
             aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
 
-            std::vector<Texture> diffuseMaps = LoadMaterialTextures(
-                material, aiTextureType_DIFFUSE, "texture_diffuse");
-            submesh.textures.insert(submesh.textures.end(), diffuseMaps.begin(), diffuseMaps.end());
+            if (material->GetTextureCount(aiTextureType_DIFFUSE) > 0) {
+                std::vector<Texture> diffuseMaps = LoadMaterialTextures(
+                    material, aiTextureType_DIFFUSE, "texture_diffuse");
+                submesh.material.diffuse.insert(submesh.material.diffuse.end(), diffuseMaps.begin(), diffuseMaps.end());
 
-            std::vector<Texture> specularMaps = LoadMaterialTextures(
-                material, aiTextureType_SPECULAR, "texture_specular");
-            submesh.textures.insert(submesh.textures.end(), specularMaps.begin(), specularMaps.end());
+                std::vector<Texture> specularMaps = LoadMaterialTextures(
+                    material, aiTextureType_SPECULAR, "texture_specular");
+                submesh.material.specular.insert(submesh.material.specular.end(), specularMaps.begin(), specularMaps.end());
 
-            std::vector<Texture> normalMaps = LoadMaterialTextures(
-                material, aiTextureType_NORMALS, "texture_normal");
-            submesh.textures.insert(submesh.textures.end(), normalMaps.begin(), normalMaps.end());
+                std::vector<Texture> normalMaps = LoadMaterialTextures(
+                    material, aiTextureType_NORMALS, "texture_normal");
+                submesh.material.normal.insert(submesh.material.normal.end(), normalMaps.begin(), normalMaps.end());
 
-            std::vector<Texture> heightMaps = LoadMaterialTextures(
-                material, aiTextureType_HEIGHT, "texture_height");
-            submesh.textures.insert(submesh.textures.end(), heightMaps.begin(), heightMaps.end());
+                std::vector<Texture> heightMaps = LoadMaterialTextures(
+                    material, aiTextureType_HEIGHT, "texture_height");
+                submesh.material.height.insert(submesh.material.height.end(), heightMaps.begin(), heightMaps.end());
+            }
+            else {
+                submesh.material.diffuse.push_back(DefaultTexture("texture_diffuse"));
+            }
         }
 
         return submesh;
@@ -335,5 +343,39 @@ private:
         }
 
         return textureID;
+    }
+
+    GLuint CreateSolidColorTexture(float r, float g, float b, float a = 1.0f) {
+        GLuint textureID;
+        glGenTextures(1, &textureID);
+
+        unsigned char pixel[] = {
+            static_cast<unsigned char>(r * 255),
+            static_cast<unsigned char>(g * 255),
+            static_cast<unsigned char>(b * 255),
+            static_cast<unsigned char>(a * 255)
+        };
+
+        glBindTexture(GL_TEXTURE_2D, textureID);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixel);
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+        return textureID;
+    }
+
+    public:
+
+    Texture DefaultTexture(std::string textureName, glm::vec3 color = glm::vec3(0.8f, 0.8f, 0.8f)) {
+        aiColor3D diffuseColor(color.x, color.y, color.z); // Default gray
+
+        Texture fallbackDiffuse;
+        fallbackDiffuse.id = CreateSolidColorTexture(diffuseColor.r, diffuseColor.g, diffuseColor.b);
+        fallbackDiffuse.type = textureName;
+        fallbackDiffuse.path = "fallback_texture";
+        return fallbackDiffuse;
     }
 };

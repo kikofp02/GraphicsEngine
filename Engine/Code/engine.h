@@ -1,10 +1,11 @@
-// engine.h: This file contains the types and functions relative to the engine.
+// engine.h
 #pragma once
 
 #include "platform.h"
 #include "model.h"
 #include "shader.h"
 #include "camera.h"
+#include "panels.h"
 #include <glad/glad.h>
 
 typedef glm::vec2  vec2;
@@ -14,35 +15,19 @@ typedef glm::ivec2 ivec2;
 typedef glm::ivec3 ivec3;
 typedef glm::ivec4 ivec4;
 
-struct Image
-{
-    void* pixels;
-    ivec2 size;
-    i32   nchannels;
-    i32   stride;
-};
-
-struct Texture_2D
-{
-    GLuint      handle;
-    std::string filepath;
-};
-
 enum Mode
 {
-    Mode_TexturedQuad,
-    Mode_TexturedMesh,
-    Mode_FBORender,
-    Mode_Deferred,
-    Mode_Count
+    Mode_Forward,
+    Mode_DebugFBO,
+    Mode_Deferred
 };
 
 enum DisplayMode
 {
-    Albedo,
-    Normals,
-    Positions,
-    Depth
+    Display_Albedo,
+    Display_Normals,
+    Display_Positions,
+    Display_Depth
 };
 
 struct OpenGLInfo {
@@ -84,51 +69,41 @@ struct Light {
 
 struct App
 {
-    // Loop
+    // Core
     f32  deltaTime;
+    f32 time;
     bool isRunning;
 
-    // Input
+    ivec2 displaySize;
+
     Input input;
 
-    // Graphics
+    // Graphics Details
     char gpuName[64];
     char openGlVersion[64];
     OpenGLInfo oglInfo;
 
     bool enableDebugGroups = true;
 
-    ivec2 displaySize;
-
-    std::vector<Texture_2D>    textures_2D;
-    
+    // Engine
     std::vector<Model>      models;
     std::vector<Shader>     shaders;
-
-    std::vector<Light> lights;
-
-    // program indices
-    u32 texturedGeometryShaderIdx;
-    u32 texturedMeshShaderIdx;
-    u32 deferredShaderIdx;
-        
-    // texture indices
-    u32 diceTexIdx;
-    u32 whiteTexIdx;
-    u32 blackTexIdx;
-    u32 normalTexIdx;
-    u32 magentaTexIdx;
-
-    // Mode
-    Mode mode;
+    std::vector<Light>      lights;
 
     Camera camera;
+    DisplayMode displayMode;
+
+    Mode mode;
+
+    // program indices
+    u32 debugTexturesShaderIdx;
+    u32 forwardShaderIdx;
+    u32 deferredLightingShaderIdx;
+    u32 geometryPassShaderIdx;
 
     //UBOs
     UniformBuffer transformsUBO;
     UniformBuffer globalParamsUBO;
-
-    f32 time;
 
     // Framebuffer resources
     GLuint fboHandle;
@@ -137,20 +112,12 @@ struct App
     GLuint positionTexture;
     GLuint depthTexture;
 
-    u32 geometryPassShaderIdx;
-
-    DisplayMode displayMode;
-
-    // Embedded geometry (in-editor simple meshes such as
-    // a screen filling quad, a cube, a sphere...)
     GLuint embeddedVertices;
     GLuint embeddedElements;
-
-    // Location of the texture uniform in the textured quad shader
-    GLuint programUniformTexture;
-
-    // VAO object to link our screen filling quad with our textured quad shader
     GLuint vao;
+
+    // GUI
+    GUI_PanelManager panelManager;
 };
 
 void Init(App* app);

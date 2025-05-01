@@ -57,6 +57,9 @@
     <ClCompile Include="Code\model.h">
       <Filter>Engine\Utils</Filter>
     </ClCompile>
+    <ClCompile Include="Code\panels.cpp">
+      <Filter>Engine\Utils</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ThirdParty\imgui-docking\imconfig.h">
@@ -107,9 +110,24 @@
     <ClInclude Include="Code\gl_error.h">
       <Filter>Engine\Utils</Filter>
     </ClInclude>
+    <ClInclude Include="Code\panels.h">
+      <Filter>Engine\Utils</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="WorkingDir\shaders.glsl">
+    <None Include="WorkingDir\Shaders\debug_textures.glsl">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="WorkingDir\Shaders\default_shader.glsl">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="WorkingDir\Shaders\deferred_lighting.glsl">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="WorkingDir\Shaders\forward.glsl">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="WorkingDir\Shaders\geometry_pass.glsl">
       <Filter>Shaders</Filter>
     </None>
   </ItemGroup>

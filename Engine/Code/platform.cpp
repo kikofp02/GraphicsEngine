@@ -23,9 +23,12 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 
-#define WINDOW_TITLE  "Francisco Ferreros Puigmarti - Deferred Exercise"
+#define WINDOW_TITLE  "Graphics Engine"
 #define WINDOW_WIDTH  800
 #define WINDOW_HEIGHT 600
+
+#define WINDOW_ADAPT_SIZE true
+#define WINDOW_CENTERED true
 
 #define GLOBAL_FRAME_ARENA_SIZE MB(16)
 u8* GlobalFrameArenaMemory = NULL;
@@ -142,6 +145,20 @@ int main()
     {
         ELOG("glfwCreateWindow() failed\n");
         return -1;
+    }
+
+    GLFWmonitor* primary = glfwGetPrimaryMonitor();
+    const GLFWvidmode* mode = glfwGetVideoMode(primary);
+
+    if (WINDOW_ADAPT_SIZE) {
+        app.displaySize = ivec2(mode->width * 0.75, mode->height * 0.75);
+        glfwSetWindowSize(window, app.displaySize.x, app.displaySize.y);
+    }
+
+    if (WINDOW_CENTERED) {
+        int xPos = (mode->width - app.displaySize.x) / 2;
+        int yPos = (mode->height - app.displaySize.y) / 2;
+        glfwSetWindowPos(window, xPos, yPos);
     }
 
     glfwSetWindowUserPointer(window, &app);

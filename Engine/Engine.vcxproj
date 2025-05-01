@@ -21,6 +21,7 @@
   <ItemGroup>
     <ClCompile Include="Code\engine.cpp" />
     <ClCompile Include="Code\model.h" />
+    <ClCompile Include="Code\panels.cpp" />
     <ClCompile Include="Code\platform.cpp" />
     <ClCompile Include="ThirdParty\glad\include\glad\glad.c" />
     <ClCompile Include="ThirdParty\imgui-docking\imgui.cpp" />
@@ -36,6 +37,7 @@
     <ClInclude Include="Code\camera.h" />
     <ClInclude Include="Code\engine.h" />
     <ClInclude Include="Code\gl_error.h" />
+    <ClInclude Include="Code\panels.h" />
     <ClInclude Include="Code\platform.h" />
     <ClInclude Include="Code\shader.h" />
     <ClInclude Include="ThirdParty\glad\include\glad\glad.h" />
@@ -51,7 +53,11 @@
     <ClInclude Include="ThirdParty\stb\stb_image.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="WorkingDir\shaders.glsl" />
+    <None Include="WorkingDir\Shaders\debug_textures.glsl" />
+    <None Include="WorkingDir\Shaders\default_shader.glsl" />
+    <None Include="WorkingDir\Shaders\deferred_lighting.glsl" />
+    <None Include="WorkingDir\Shaders\forward.glsl" />
+    <None Include="WorkingDir\Shaders\geometry_pass.glsl" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
