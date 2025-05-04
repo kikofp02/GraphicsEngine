@@ -3,13 +3,24 @@
 ///////////////////////////////////////////////////////////////////////
 #ifdef FORWARD
 
-#if defined(VERTEX) ///////////////////////////////////////////////////
+struct Mat_Prop {
+    vec4 color;
+    bool use_text;
+};
 
-layout(location=0) in vec3 aPosition;
-layout(location=1) in vec3 aNormal;
-layout(location=2) in vec2 aTexCoord;
-//layout(location=3) in vec3 aTangent;
-//layout(location=4) in vec3 aBitangent;
+struct Material {
+    Mat_Prop diffuse;
+    Mat_Prop specular;
+    Mat_Prop normal;
+    Mat_Prop height;
+};
+
+struct Mat_Textures{
+    sampler2D diffuse;
+    sampler2D specular;
+    sampler2D normal;
+    sampler2D height;
+};
 
 struct Light {
     uint type;
@@ -17,6 +28,14 @@ struct Light {
     vec3 direction;
     vec4 position;
 };
+
+#if defined(VERTEX) ///////////////////////////////////////////////////
+
+layout(location=0) in vec3 aPosition;
+layout(location=1) in vec3 aNormal;
+layout(location=2) in vec2 aTexCoord;
+//layout(location=3) in vec3 aTangent;
+//layout(location=4) in vec3 aBitangent;
 
 layout(std140, binding = 0) uniform GlobalParams {
     vec3            uCameraPosition;
@@ -48,14 +67,8 @@ in vec2 vTexCoord;
 in vec3 vNormal;
 in vec3 vFragPos;
 
-uniform sampler2D uTexture;
-
-struct Light {
-    uint type;
-    vec3 color;
-    vec3 direction;
-    vec4 position;
-};
+uniform Material material;
+uniform Mat_Textures mat_textures;
 
 layout(std140, binding = 0) uniform GlobalParams {
     vec3            uCameraPosition;
@@ -108,7 +121,7 @@ void main()
         }
     }
 
-    vec4 texColor = texture(uTexture, vTexCoord);
+    vec4 texColor = material.diffuse.use_text ? texture(mat_textures.diffuse, vTexCoord) : material.diffuse.color;
     oColor = vec4(result * texColor.rgb, texColor.a);
     //oColor = vec4(norm * 0.5 + 0.5, 1.0);
 }

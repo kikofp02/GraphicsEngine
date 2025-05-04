@@ -86,16 +86,23 @@ struct App
     bool enableDebugGroups = true;
 
     // Engine
-    std::vector<Model>      models;
-    std::vector<Shader>     shaders;
-    std::vector<Light>      lights;
+    std::vector<Model>                          models;
+    std::vector<Shader>                         shaders;
+    std::vector<Light>                          lights;
+    std::vector<std::shared_ptr<Texture>>       textures_loaded;
 
-    Camera camera;
-    DisplayMode displayMode;
+    Camera      camera;
+    Model*      selectedModel;
+    glm::vec4   bg_color = glm::vec4(0.f, 0.f, 0.f, 1.f);
+    std::shared_ptr<Material> selectedMaterial;
+
+    bool rotate_models = true;
 
     Mode mode;
+    DisplayMode displayMode;
 
     // program indices
+    // TODO_K: k mierda, mejor quitar esto y usar los names en shaders
     u32 debugTexturesShaderIdx;
     u32 forwardShaderIdx;
     u32 deferredLightingShaderIdx;

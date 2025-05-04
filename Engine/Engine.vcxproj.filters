@@ -54,10 +54,10 @@
     <ClCompile Include="ThirdParty\stb\stb.cpp">
       <Filter>Stb</Filter>
     </ClCompile>
-    <ClCompile Include="Code\model.h">
+    <ClCompile Include="Code\panels.cpp">
       <Filter>Engine\Utils</Filter>
     </ClCompile>
-    <ClCompile Include="Code\panels.cpp">
+    <ClCompile Include="Code\model.cpp">
       <Filter>Engine\Utils</Filter>
     </ClCompile>
   </ItemGroup>
@@ -111,6 +111,9 @@
       <Filter>Engine\Utils</Filter>
     </ClInclude>
     <ClInclude Include="Code\panels.h">
+      <Filter>Engine\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="Code\model.h">
       <Filter>Engine\Utils</Filter>
     </ClInclude>
   </ItemGroup>

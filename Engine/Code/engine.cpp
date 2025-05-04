@@ -4,13 +4,13 @@
 
 #include <imgui.h>
 #include <imgui_internal.h>
-#include <filesystem>
 
 #include <assimp/cimport.h>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 
 #pragma region UBOs
+
 
 #pragma region Buffer_Utilities
 
@@ -183,7 +183,6 @@ void UpdateUBOs(App* app) {
 Model GeneratePlaneModel(App* app, float size, int subdivisions, const std::string& texturePath) {
     Model model;
     Mesh planeMesh;
-    Submesh planeSubmesh;
 
     // Generate vertices
     float step = size / subdivisions;
@@ -205,7 +204,7 @@ Model GeneratePlaneModel(App* app, float size, int subdivisions, const std::stri
             vertex.Tangent = glm::vec3(1.0f, 0.0f, 0.0f);
             vertex.Bitangent = glm::vec3(0.0f, 0.0f, 1.0f);
 
-            planeSubmesh.vertices.push_back(vertex);
+            planeMesh.vertices.push_back(vertex);
         }
     }
 
@@ -217,20 +216,20 @@ Model GeneratePlaneModel(App* app, float size, int subdivisions, const std::stri
             int bottomLeft = (z + 1) * (subdivisions + 1) + x;
             int bottomRight = bottomLeft + 1;
 
-            planeSubmesh.indices.push_back(topLeft);
-            planeSubmesh.indices.push_back(bottomLeft);
-            planeSubmesh.indices.push_back(topRight);
+            planeMesh.indices.push_back(topLeft);
+            planeMesh.indices.push_back(bottomLeft);
+            planeMesh.indices.push_back(topRight);
 
-            planeSubmesh.indices.push_back(topRight);
-            planeSubmesh.indices.push_back(bottomLeft);
-            planeSubmesh.indices.push_back(bottomRight);
+            planeMesh.indices.push_back(topRight);
+            planeMesh.indices.push_back(bottomLeft);
+            planeMesh.indices.push_back(bottomRight);
         }
     }
+    auto tex = std::make_shared<Texture>();
+    *tex = Model::TextureFromColor("texture_diffuse");
+    app->textures_loaded.emplace_back(tex);
+    planeMesh.material->diffuse.texture = app->textures_loaded.back();
 
-    planeSubmesh.material.diffuse.push_back(model.DefaultTexture("texture_diffuse"));
-
-    planeMesh.submeshes.push_back(planeSubmesh);
-    planeMesh.SetupMesh();
     model.meshes.push_back(planeMesh);
 
     return model;
@@ -339,13 +338,13 @@ void Init(App* app)
 
     InitGUI(app);
 
-    app->mode = Mode_Deferred;
+    app->mode = Mode_Forward;
     app->displayMode = Display_Albedo;
 
     // Camera inizialization
-    app->camera = Camera(glm::vec3(-60.0f, 25.0f, 60.0f));
+    app->camera = Camera(glm::vec3(0.0f, 20.0f, 30.0f));
     app->camera.Pitch = -20.;
-    app->camera.Yaw = -45.;
+    //app->camera.Yaw = -45.;
     app->camera.UpdateVectors();
 
     GL_CHECK(glEnable(GL_DEPTH_TEST));
@@ -372,32 +371,12 @@ void Init(App* app)
 
 #pragma region Models
 
-    //Ground Plane
-    Model planeModel = GeneratePlaneModel(app, 20.0f, 10, "color_white.png");
-    app->models.push_back(planeModel);
-    app->models.back().scale = glm::vec3(4.0f, 1.0f, 4.0f);
+    //Model rifleModel("Character/girl_complete_03.obj", app);
+    Model rifleModel("Backpack/Survival_BackPack_2.fbx", app);
+    app->models.push_back(rifleModel);
 
-    // Patricks
-    Model patrickModel("Patrick/Patrick.obj");
-    int countPerSide = 4;
-    float spacing = 15.0f;
-
-    float totalWidth = (countPerSide - 1) * spacing;
-    float startX = -totalWidth / 2.0f;
-    float startZ = -totalWidth / 2.0f;
-
-    for (int z = 0; z < countPerSide; ++z) {
-        for (int x = 0; x < countPerSide; ++x) {
-            Model patrickCopy = patrickModel;
-
-            patrickCopy.position = glm::vec3(
-                startX + x * spacing,   // X position
-                3.4f,                   // Y position
-                startZ + z * spacing    // Z position
-            );
-            app->models.push_back(patrickCopy);
-        }
-    }
+    app->selectedModel = &app->models[0];
+    app->selectedMaterial = app->selectedModel->materials[0];
 
 #pragma endregion
 
@@ -407,6 +386,7 @@ void Init(App* app)
     Light dir1;
     dir1.type = LightType_Directional;
     dir1.color = glm::vec3(1.0f, 0.9f, 0.8f);
+    //dir1.position = glm::vec3(-60.0f, 25.0f, 60.0f);      TODO_K: no tiene pos?? lul
     dir1.direction = glm::vec3(-0.5f, -1.0f, -0.5f);
     app->lights.push_back(dir1);
 
@@ -416,27 +396,16 @@ void Init(App* app)
     dir2.direction = glm::vec3(0.5f, -1.0f, 0.2f);
     app->lights.push_back(dir2);*/
 
-    const int lights_gridSize = 4;
-    const float lights_spacing = 15.0f;
-
-    float lights_totalWidth = (lights_gridSize - 1) * lights_spacing;
-    float lights_startX = -lights_totalWidth / 2.0f;
-    float lights_startZ = -lights_totalWidth / 2.0f;
-
-    for (int z = 0; z < lights_gridSize; ++z) {
-        for (int x = 0; x < lights_gridSize; ++x) {
-            Light pointLight;
-            pointLight.type = LightType_Point;
-            pointLight.color = glm::vec3(
-                rand() / (float)RAND_MAX * 0.5f + 0.5f,
-                rand() / (float)RAND_MAX * 0.5f + 0.5f,
-                rand() / (float)RAND_MAX * 0.5f + 0.5f
-            );
-            pointLight.position = glm::vec3(lights_startX + x * lights_spacing, 8.f, lights_startZ + z * lights_spacing);
-            pointLight.range = 10.0f;
-            app->lights.push_back(pointLight);
-        }
-    }
+    /*Light pointLight;
+    pointLight.type = LightType_Point;
+    pointLight.color = glm::vec3(
+        rand() / (float)RAND_MAX * 0.5f + 0.5f,
+        rand() / (float)RAND_MAX * 0.5f + 0.5f,
+        rand() / (float)RAND_MAX * 0.5f + 0.5f
+    );
+    pointLight.position = glm::vec3(lights_startX + x * lights_spacing, 8.f, lights_startZ + z * lights_spacing);
+    pointLight.range = 10.0f;
+    app->lights.push_back(pointLight);*/
 
 #pragma endregion
 
@@ -451,9 +420,8 @@ void Init(App* app)
                 glObjectLabel(GL_BUFFER, mesh.EBO, -1, "ModelEBO");
             }
 
-            for (Texture texture : model.textures_loaded) {
-                glObjectLabel(GL_TEXTURE, texture.id, -1,
-                    texture.path.c_str());
+            for (const auto& texture : app->textures_loaded) {
+                glObjectLabel(GL_TEXTURE, texture->id, -1, texture->path.c_str());
             }
         }
     }
@@ -511,7 +479,7 @@ void Update(App* app)
 
     UpdateUBOs(app);
 
-    if (!app->models.empty()) {
+    if (!app->models.empty() && app->rotate_models) {
         float speed = 1.0f;
         float radius = 2.0f;
 
@@ -519,9 +487,9 @@ void Update(App* app)
         //app->models[0].position.x = sin(app->time * speed) * radius;
         //app->models[0].position.z = cos(app->time * speed) * radius;
 
-        for (size_t i = 1; i < app->models.size(); ++i)
+        for (size_t i = 0; i < app->models.size(); ++i)
         {
-            app->models[i].rotation.y = fmod(app->time * 30.0f * (i*i), 360.0f);
+            app->models[i].rotation.y = fmod(app->time * 30.0f * (2), 360.0f);
         }
     }
 
