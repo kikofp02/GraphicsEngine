@@ -322,8 +322,22 @@ void InitFBO(App* app) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, app->depthTexture, 0);
 
-    GLenum drawBuffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
-    glDrawBuffers(3, drawBuffers);
+    // MaterialProps (Metallic, Roughness, Height, Alpha mask?)
+    glGenTextures(1, &app->materialPropsTexture);
+    glBindTexture(GL_TEXTURE_2D, app->materialPropsTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, app->displaySize.x, app->displaySize.y, 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, GL_TEXTURE_2D, app->materialPropsTexture, 0);
+
+
+    GLenum drawBuffers[] = {
+        GL_COLOR_ATTACHMENT0,       // Albedo
+        GL_COLOR_ATTACHMENT1,       // Normal
+        GL_COLOR_ATTACHMENT2,       // Position
+        GL_COLOR_ATTACHMENT3,       // MaterialProps
+    };
+    glDrawBuffers(4, drawBuffers);
 
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
         ELOG("FBO initialization failed!");
@@ -338,7 +352,7 @@ void Init(App* app)
 
     InitGUI(app);
 
-    app->mode = Mode_Forward;
+    app->mode = Mode_Deferred;
     app->displayMode = Display_Albedo;
 
     // Camera inizialization
@@ -454,6 +468,12 @@ void ResizeFBO(App* app) {
         app->displaySize.x, app->displaySize.y,
         0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
 
+    // Material Properties
+    glBindTexture(GL_TEXTURE_2D, app->materialPropsTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F,
+        app->displaySize.x, app->displaySize.y,
+        0, GL_RGBA, GL_FLOAT, NULL);
+
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
@@ -514,7 +534,8 @@ void Update(App* app)
         case Display_Albedo:        app->displayMode = Display_Normals; break;
         case Display_Normals:       app->displayMode = Display_Positions; break;
         case Display_Positions:     app->displayMode = Display_Depth; break;
-        case Display_Depth:         app->displayMode = Display_Albedo; break;
+        case Display_Depth:         app->displayMode = Display_MatProps; break;
+        case Display_MatProps:         app->displayMode = Display_Albedo; break;
         default: break;
         }
     }
@@ -624,6 +645,9 @@ void Render(App* app)
                 glBindTexture(GL_TEXTURE_2D, app->depthTexture);
                 glTexParameteri(GL_TEXTURE_2D, GL_DEPTH_STENCIL_TEXTURE_MODE, GL_DEPTH_COMPONENT);
                 break;
+            case Display_MatProps:
+                glBindTexture(GL_TEXTURE_2D, app->materialPropsTexture);
+                break;
             }
 
             glBindVertexArray(app->vao);
@@ -677,6 +701,10 @@ void Render(App* app)
             glBindVertexArray(app->vao);
             glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
             glEnable(GL_DEPTH_TEST);
+
+            glActiveTexture(GL_TEXTURE3);
+            glBindTexture(GL_TEXTURE_2D, app->materialPropsTexture);
+            lightShader.SetInt("gMatProps", 3);
 
             if (app->enableDebugGroups) glPopDebugGroup();
         }

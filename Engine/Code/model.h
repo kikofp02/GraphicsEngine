@@ -60,10 +60,11 @@ public:
     std::string name;
 
     Mat_Property diffuse;
-    Mat_Property metalic;
+    Mat_Property metallic;
     Mat_Property normal;
     Mat_Property height;
     Mat_Property roughness;     //roughness vs glossiness = glossines es el inverso del otro
+    Mat_Property alphaMask;
 };
 
 class Mesh {

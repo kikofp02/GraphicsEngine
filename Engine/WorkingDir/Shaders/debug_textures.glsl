@@ -29,7 +29,11 @@ vec3 normalToColor(vec3 n) {
 }
 
 vec3 positionToColor(vec3 p) {
-    return fract(p * 0.1);
+    float freq = 0.001; // controls spacing
+    float sharpness = 200.0; // higher = more contrast
+
+    vec3 wave = sin(p * freq);
+    return smoothstep(-1.0 / sharpness, 1.0 / sharpness, wave);
 }
 
 void main() {
@@ -51,6 +55,11 @@ void main() {
         case 3: // Depth
             float depth = texture(uTexture, vTexCoord).r;
             oColor = vec4(vec3(depth), 1.0);
+            break;
+
+        case 4: // Metallic, roughness, Height, AlphaMask
+            vec3 matProp = texture(uTexture, vTexCoord).rgb;
+            oColor = vec4(matProp, 1.0);
             break;
     }
 }

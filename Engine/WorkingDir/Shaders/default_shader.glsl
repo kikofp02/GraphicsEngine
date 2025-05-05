@@ -12,18 +12,20 @@ out vec2 vTexCoord;
 
 void main()
 {
-	vTexCoord = aTexCoord;
-	gl_Position = vec4(aPosition, 1.0);
+    vTexCoord = aTexCoord;
+    glPosition = vec4(aPosition, 1.0);
 }
 
 #elif defined(FRAGMENT) ///////////////////////////////////////////////
 
+in vec2 vTexCoord;
+
 uniform sampler2D uTexture;
 
-in vec2 vTexCoord;
-out vec4 oColor;
+layout(location=0) out vec4 oColor;
 
-void main() {
+void main()
+{
     oColor = texture(uTexture, vTexCoord);
 }
 

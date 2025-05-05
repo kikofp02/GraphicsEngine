@@ -27,7 +27,8 @@ enum DisplayMode
     Display_Albedo,
     Display_Normals,
     Display_Positions,
-    Display_Depth
+    Display_Depth,
+    Display_MatProps
 };
 
 struct OpenGLInfo {
@@ -118,6 +119,7 @@ struct App
     GLuint normalTexture;
     GLuint positionTexture;
     GLuint depthTexture;
+    GLuint materialPropsTexture;
 
     GLuint embeddedVertices;
     GLuint embeddedElements;
