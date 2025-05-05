@@ -351,8 +351,8 @@ void MaterialsPanel::Update(App* app) {
     TextureSelector(app, "D_Texture", &app->selectedMaterial->diffuse);
 
     ImGui::Dummy(ImVec2(0.0f, 10.0f));
-    ImGui::ColorEdit4("Specular", glm::value_ptr(app->bg_color), ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoPicker);
-    TextureSelector(app, "S_Texture", &app->selectedMaterial->specular);
+    ImGui::ColorEdit4("Metalic", glm::value_ptr(app->bg_color), ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoPicker);
+    TextureSelector(app, "M_Texture", &app->selectedMaterial->metalic);
 
     ImGui::Dummy(ImVec2(0.0f, 20.0f));
     ImGui::Separator();

@@ -60,7 +60,7 @@ public:
     std::string name;
 
     Mat_Property diffuse;
-    Mat_Property specular;
+    Mat_Property metalic;
     Mat_Property normal;
     Mat_Property height;
     Mat_Property roughness;     //roughness vs glossiness = glossines es el inverso del otro

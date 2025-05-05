@@ -4,24 +4,27 @@
 
 Material::Material() {
     diffuse.color       = glm::vec4(glm::vec3(Model::RandomColorRGB(), Model::RandomColorRGB(), Model::RandomColorRGB()), 1.0f);
-    specular.color      = glm::vec4(glm::vec3(0.5f), 1.0f);
-    normal.color        = glm::vec4(glm::vec3(1.f), 1.0f);
-    height.color        = glm::vec4(glm::vec3(0.f), 1.0f);
-    roughness.color     = glm::vec4(glm::vec3(0.f), 1.0f);
+    metalic.color       = glm::vec4(glm::vec3(0.5f), 1.0f);
+    normal.color        = glm::vec4(glm::vec3(1.0f), 1.0f);
+    height.color        = glm::vec4(glm::vec3(0.0f), 1.0f);
+    roughness.color     = glm::vec4(glm::vec3(0.0f), 1.0f);
+
+    diffuse.prop_enabled = true;
+    metalic.prop_enabled = true;
 }
 
 void Mesh::Draw(const Shader& shader) const {
     glBindVertexArray(VAO);
 
-    shader.SetInt("mat_textures.diffuse", 0);
-    shader.SetVec4("material.diffuse.color", material->diffuse.color);
     /*shader.SetInt("material.specular.text", 1);
     shader.SetVec3("material.diffuse.color", material->diffuse.color);
-    shader.SetInt("material.normal.text", 2);
-    shader.SetVec3("material.diffuse.color", material->diffuse.color);
+    
     shader.SetInt("material.height.text", 3);
     shader.SetVec3("material.diffuse.color", material->diffuse.color);*/
 
+    shader.SetInt("mat_textures.diffuse", 0);
+    shader.SetVec4("material.diffuse.color", material->diffuse.color);
+    shader.SetBool("material.diffuse.prop_enabled", material->diffuse.prop_enabled);
     if (material->diffuse.tex_enabled) {
         shader.SetBool("material.diffuse.use_text", true);
         glActiveTexture(GL_TEXTURE0);
@@ -29,6 +32,20 @@ void Mesh::Draw(const Shader& shader) const {
     }
     else {
         shader.SetBool("material.diffuse.use_text", false);
+    }
+
+    shader.SetInt("material.normal.text", 2);
+    shader.SetVec4("material.normal.color", material->normal.color);
+    shader.SetBool("material.normal.prop_enabled", material->normal.prop_enabled);
+    if (material->normal.prop_enabled) {
+        if (material->normal.tex_enabled) {
+            shader.SetBool("material.normal.use_text", true);
+            glActiveTexture(GL_TEXTURE2);
+            glBindTexture(GL_TEXTURE_2D, material->normal.texture->id);
+        }
+        else {
+            shader.SetBool("material.normal.use_text", false);
+        }
     }
 
     /*if (material->specular.tex_enabled) {
@@ -41,15 +58,7 @@ void Mesh::Draw(const Shader& shader) const {
         glBindTexture(GL_TEXTURE_2D, color_tex.id);
     }
 
-    if (material->normal.tex_enabled) {
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, material->normal.texture->id);
-    }
-    else {
-        Texture color_tex = Model::TextureFromColor("color_normal", material->normal.color);
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, color_tex.id);
-    }
+    
 
     if (material->height.tex_enabled) {
         glActiveTexture(GL_TEXTURE3);
@@ -116,8 +125,11 @@ void Model::ProcessMesh(App* app, aiMesh* mesh, const aiScene* scene, Mesh& new_
 
         if (mesh->mTextureCoords[0]) {
             vertex.TexCoords = { mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y };
-            vertex.Tangent = { mesh->mTangents[i].x, mesh->mTangents[i].y, mesh->mTangents[i].z };
-            vertex.Bitangent = { mesh->mBitangents[i].x, mesh->mBitangents[i].y, mesh->mBitangents[i].z };
+            if (mesh->HasTangentsAndBitangents()) {
+                vertex.Tangent = { mesh->mTangents[i].x, mesh->mTangents[i].y, mesh->mTangents[i].z };
+                vertex.Bitangent = { mesh->mBitangents[i].x, mesh->mBitangents[i].y, mesh->mBitangents[i].z };
+            }
+            else { vertex.TexCoords = { 0.0f, 0.0f }; }
         }
 
         new_mesh.vertices.push_back(vertex);

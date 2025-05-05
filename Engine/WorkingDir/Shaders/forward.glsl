@@ -6,6 +6,7 @@
 struct Mat_Prop {
     vec4 color;
     bool use_text;
+    bool prop_enabled;
 };
 
 struct Material {
@@ -34,8 +35,8 @@ struct Light {
 layout(location=0) in vec3 aPosition;
 layout(location=1) in vec3 aNormal;
 layout(location=2) in vec2 aTexCoord;
-//layout(location=3) in vec3 aTangent;
-//layout(location=4) in vec3 aBitangent;
+layout(location=3) in vec3 aTangent;
+layout(location=4) in vec3 aBitangent;
 
 layout(std140, binding = 0) uniform GlobalParams {
     vec3            uCameraPosition;
@@ -51,12 +52,19 @@ layout(std140, binding = 1) uniform TransformBlock {
 out vec2 vTexCoord;
 out vec3 vNormal;
 out vec3 vFragPos;
+out mat3 vTBN;
 
 void main()
 {
 	vTexCoord = aTexCoord;
     vNormal = mat3(transpose(inverse(uModelMatrix))) * aNormal;
     vFragPos = vec3(uModelMatrix * vec4(aPosition, 1.0));
+
+    // calculate TBN matrix
+    vec3 T = normalize(mat3(uModelMatrix) * aTangent);
+    vec3 B = normalize(mat3(uModelMatrix) * aBitangent);
+    vec3 N = normalize(mat3(uModelMatrix) * aNormal);
+    vTBN = mat3(T, B, N);
 
     gl_Position = uViewProjectionMatrix * uModelMatrix * vec4(aPosition, 1.0);
 }
@@ -66,6 +74,7 @@ void main()
 in vec2 vTexCoord;
 in vec3 vNormal;
 in vec3 vFragPos;
+in mat3 vTBN;
 
 uniform Material material;
 uniform Mat_Textures mat_textures;
@@ -109,7 +118,14 @@ vec3 CalculatePointLight(uint index, vec3 normal, vec3 viewDir) {
 
 void main()
 {
+    vec3 tangentNormal = normalize(material.normal.color.xyz * 2.0 - 1.0);
+    if (material.normal.use_text) {
+        tangentNormal = normalize(texture(mat_textures.normal, vTexCoord).xyz * 2.0 - 1.0);
+    }
+    
     vec3 norm = normalize(vNormal);
+    if(material.normal.prop_enabled){norm = normalize(vTBN * tangentNormal);}
+
     vec3 viewDir = normalize(uCameraPosition - vFragPos);
     vec3 result = vec3(0.0);
 
@@ -123,7 +139,6 @@ void main()
 
     vec4 texColor = material.diffuse.use_text ? texture(mat_textures.diffuse, vTexCoord) : material.diffuse.color;
     oColor = vec4(result * texColor.rgb, texColor.a);
-    //oColor = vec4(norm * 0.5 + 0.5, 1.0);
 }
 
 #endif
