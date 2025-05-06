@@ -61,11 +61,14 @@ enum LightType {
 };
 
 struct Light {
+    std::string name;
+    bool enabled = true;
     LightType type;
     glm::vec3 color;
     glm::vec3 direction;
     glm::vec3 position;
     float range;
+    float intensity;
 };
 
 struct App
@@ -94,8 +97,10 @@ struct App
 
     Camera      camera;
     Model*      selectedModel;
-    glm::vec4   bg_color = glm::vec4(0.f, 0.f, 0.f, 1.f);
+    Light*      selectedLight;
+
     std::shared_ptr<Material> selectedMaterial;
+    glm::vec3 bg_color = glm::vec3(0.f, 0.f, 0.f);
 
     bool rotate_models = true;
 

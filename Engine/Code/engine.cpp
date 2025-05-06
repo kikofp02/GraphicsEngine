@@ -105,6 +105,7 @@ void InitUBOs(App* app) {
         reinterpret_cast<GLint*>(&app->globalParamsUBO.alignment)));
 
     size_t cameraPosSize = sizeof(glm::vec4);
+    size_t bgColorSize = sizeof(glm::vec4);
     size_t lightCountSize = sizeof(glm::uvec4);
     size_t lightSize = 4 * sizeof(glm::vec4);
     app->globalParamsUBO.blockSize = cameraPosSize + lightCountSize + app->lights.size() * lightSize;
@@ -163,13 +164,12 @@ void UpdateUBOs(App* app) {
 
     // Lights array
     for (auto& light : app->lights) {
-        AlignHead(app->globalParamsUBO.buffer, 16);
-
+        PushUInt(app->globalParamsUBO.buffer, light.enabled ? 1u : 0u);
         PushUInt(app->globalParamsUBO.buffer, static_cast<u32>(light.type));
         AlignHead(app->globalParamsUBO.buffer, 16);
 
-        PushVec3(app->globalParamsUBO.buffer, light.color);
         PushVec3(app->globalParamsUBO.buffer, light.direction);
+        PushVec4(app->globalParamsUBO.buffer, glm::vec4(light.color, light.intensity));
         PushVec4(app->globalParamsUBO.buffer, glm::vec4(light.position, light.range));
     }
 
@@ -322,7 +322,7 @@ void InitFBO(App* app) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, app->depthTexture, 0);
 
-    // MaterialProps (Metallic, Roughness, Height, Alpha mask?)
+    // MaterialProps (Metallic, Roughness, Height, Ambient Oclusion?)
     glGenTextures(1, &app->materialPropsTexture);
     glBindTexture(GL_TEXTURE_2D, app->materialPropsTexture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, app->displaySize.x, app->displaySize.y, 0, GL_RGBA, GL_FLOAT, NULL);
@@ -385,12 +385,43 @@ void Init(App* app)
 
 #pragma region Models
 
-    //Model rifleModel("Character/girl_complete_03.obj", app);
-    Model rifleModel("Backpack/Survival_BackPack_2.fbx", app);
-    app->models.push_back(rifleModel);
+    //Model model_1("Backpack/Survival_BackPack_2.fbx", app);
+    Model model_1("Rifle/Rifle.fbx", app);
+    app->models.push_back(model_1);
 
     app->selectedModel = &app->models[0];
     app->selectedMaterial = app->selectedModel->materials[0];
+
+    // Rifle Textures
+    Model::LoadTexture(app, "Rifle/low_Bcg_BaseColor.png");
+    Model::LoadTexture(app, "Rifle/low_Bcg_Metallic.png");
+    Model::LoadTexture(app, "Rifle/low_Bcg_Normal.png");
+    Model::LoadTexture(app, "Rifle/low_Bcg_Roughness.png");
+
+    Model::LoadTexture(app, "Rifle/low_Lower_BaseColor.png");
+    Model::LoadTexture(app, "Rifle/low_Lower_Metallic.png");
+    Model::LoadTexture(app, "Rifle/low_Lower_Normal.png");
+    Model::LoadTexture(app, "Rifle/low_Lower_Roughness.png");
+
+    Model::LoadTexture(app, "Rifle/low_Mag_BaseColor.png");
+    Model::LoadTexture(app, "Rifle/low_Mag_Metallic.png");
+    Model::LoadTexture(app, "Rifle/low_Mag_Normal.png");
+    Model::LoadTexture(app, "Rifle/low_Mag_Roughness.png");
+
+    Model::LoadTexture(app, "Rifle/low_Scope_BaseColor.png");
+    Model::LoadTexture(app, "Rifle/low_Scope_Metallic.png");
+    Model::LoadTexture(app, "Rifle/low_Scope_Normal.png");
+    Model::LoadTexture(app, "Rifle/low_Scope_Roughness.png");
+
+    Model::LoadTexture(app, "Rifle/low_Silencer_BaseColor.png");
+    Model::LoadTexture(app, "Rifle/low_Silencer_Metallic.png");
+    Model::LoadTexture(app, "Rifle/low_Silencer_Normal.png");
+    Model::LoadTexture(app, "Rifle/low_Silencer_Roughness.png");
+
+    Model::LoadTexture(app, "Rifle/low_Upper_BaseColor.png");
+    Model::LoadTexture(app, "Rifle/low_Upper_Metallic.png");
+    Model::LoadTexture(app, "Rifle/low_Upper_Normal.png");
+    Model::LoadTexture(app, "Rifle/low_Upper_Roughness.png");
 
 #pragma endregion
 
@@ -398,11 +429,23 @@ void Init(App* app)
 
     // Lights
     Light dir1;
+    dir1.name = "directional_light_1";
     dir1.type = LightType_Directional;
-    dir1.color = glm::vec3(1.0f, 0.9f, 0.8f);
-    //dir1.position = glm::vec3(-60.0f, 25.0f, 60.0f);      TODO_K: no tiene pos?? lul
-    dir1.direction = glm::vec3(-0.5f, -1.0f, -0.5f);
+    dir1.color = glm::vec3(1.0f, 0.95f, 0.8f);
+    dir1.position = glm::vec3(0.0f);
+    dir1.direction = glm::normalize(glm::vec3(-1.0f, -1.0f, -0.5f));
+    dir1.intensity = 8.0;
     app->lights.push_back(dir1);
+
+    Light point1;
+    point1.name = "point_light_1";
+    point1.type = LightType_Point;
+    point1.color = glm::vec3(0.3f, 0.6f, 1.0f);
+    point1.position = glm::vec3(0.0f, 1.5f, 0.0f);
+    point1.direction = glm::vec3(0.0f);
+    point1.range = 40.0f;
+    point1.intensity = 15.0;
+    app->lights.push_back(point1);
 
     /*Light dir2;
     dir2.type = LightType_Directional;
@@ -585,6 +628,9 @@ void Render(App* app)
     {
         case Mode_Forward:
         {
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
             GL_CHECK(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
 
             if (app->enableDebugGroups) glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 2, -1, "Forward");
@@ -601,6 +647,9 @@ void Render(App* app)
 
                 model.Draw(currentShader);
             }
+
+            glDisable(GL_BLEND);
+
             if (app->enableDebugGroups) glPopDebugGroup();
         }
         break;

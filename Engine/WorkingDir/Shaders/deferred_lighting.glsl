@@ -27,10 +27,11 @@ uniform sampler2D gNormal;
 uniform sampler2D gPosition;
 uniform sampler2D gMatProps;
 
-struct Light {
+struct Light {      // position.w = range   ||  color.a = intensity
+    bool enable;
     uint type;
-    vec3 color;
     vec3 direction;
+    vec4 color;
     vec4 position;
 };
 
@@ -46,6 +47,9 @@ layout(std140, binding = 1) uniform TransformBlock {
 };
 
 const float PI = 3.14159265359;
+
+// PBR Functions
+///////////////////////////////////////////////////////////////////////
 
 // Fresnel-Schlick approximation
 vec3 FresnelSchlick(float cosTheta, vec3 F0) {
@@ -79,32 +83,38 @@ float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {
     return ggx1 * ggx2;
 }
 
-vec3 CalculateLight(vec3 albedo, vec3 normal, vec3 fragPos, vec3 viewDir, vec3 lightDir, vec3 lightColor, float attenuation, float metallic, float roughness) {
+// PBR Lighting Calculation
+///////////////////////////////////////////////////////////////////////
+
+vec3 CalculateLight(vec3 albedo, vec3 normal, float metallic, float roughness,
+                    vec3 fragPos, vec3 viewDir, vec3 lightDir, vec3 radiance)
+{
     vec3 halfwayDir = normalize(viewDir + lightDir);
+
     float NDF = DistributionGGX(normal, halfwayDir, roughness);
     float G = GeometrySmith(normal, viewDir, lightDir, roughness);
     vec3 F0 = mix(vec3(0.04), albedo, metallic);
     vec3 F = FresnelSchlick(max(dot(halfwayDir, viewDir), 0.0), F0);
 
+    vec3 kS = F;
+    vec3 kD = (vec3(1.0) - kS) * (1.0 - metallic);
+
     vec3 numerator = NDF * G * F;
     float denom = 4.0 * max(dot(normal, viewDir), 0.0) * max(dot(normal, lightDir), 0.0) + 0.001;
     vec3 specular = numerator / denom;
 
-    vec3 kS = F;
-    vec3 kD = vec3(1.0) - kS;
-    kD *= 1.0 - metallic;
-
     float NdotL = max(dot(normal, lightDir), 0.0);
-    return (kD * albedo / PI + specular) * lightColor * NdotL * attenuation;
+    return (kD * albedo / PI + specular) * radiance * NdotL;
 }
 
-vec3 CalculateDirectionalLight(uint index, vec3 albedo, vec3 normal, vec3 fragPos, vec3 viewDir, float metallic, float roughness) {
+vec3 CalculateDirectionalLight(uint index, vec3 albedo, vec3 normal, float metallic, float roughness, vec3 fragPos, vec3 viewDir) {
     vec3 lightDir = normalize(-uLight[index].direction);
-    float attenuation = 1.0; // Directional light is constant
-    return CalculateLight(albedo, normal, fragPos, viewDir, lightDir, uLight[index].color, attenuation, metallic, roughness);
+    vec3 lightColor = uLight[index].color.xyz;
+    vec3 radiance = ((lightColor) * uLight[index].color.a);
+    return CalculateLight(albedo, normal, metallic, roughness, fragPos, viewDir, lightDir, radiance);
 }
 
-vec3 CalculatePointLight(uint index, vec3 albedo, vec3 normal, vec3 fragPos, vec3 viewDir, float metallic, float roughness) {
+vec3 CalculatePointLight(uint index, vec3 albedo, vec3 normal, float metallic, float roughness, vec3 fragPos, vec3 viewDir) {
     vec3 lightPos = uLight[index].position.xyz;
     float range = uLight[index].position.w;
     vec3 lightVec = lightPos - fragPos;
@@ -112,14 +122,16 @@ vec3 CalculatePointLight(uint index, vec3 albedo, vec3 normal, vec3 fragPos, vec
     if(distance > range) return vec3(0.0);
 
     float attenuation = 1.0 - smoothstep(range * 0.75, range, distance);
+    vec3 lightColor = uLight[index].color.xyz;
+    vec3 radiance = ((lightColor) * uLight[index].color.a) * attenuation;
     vec3 lightDir = normalize(lightVec);
 
-    return CalculateLight(albedo, normal, fragPos, viewDir, lightDir, uLight[index].color, attenuation, metallic, roughness);
+    return CalculateLight(albedo, normal, metallic, roughness, fragPos, viewDir, lightDir, radiance);
 }
 
 void main()
 {
-    vec3 albedo = texture(gAlbedo, vTexCoord).rgb;
+    vec4 albedo = texture(gAlbedo, vTexCoord).rgba;
     vec3 normal = normalize(texture(gNormal, vTexCoord).rgb);
     vec3 fragPos = texture(gPosition, vTexCoord).rgb;
     vec4 matProps = texture(gMatProps, vTexCoord);
@@ -131,14 +143,16 @@ void main()
 
     vec3 result = vec3(0.0);
     for(uint i = 0u; i < uLightCount; i++) {
-        if(uLight[i].type == 0u) {
-            result += CalculateDirectionalLight(i, albedo, normal, fragPos, viewDir, metallic, roughness);
-        } else {
-            result += CalculatePointLight(i, albedo, normal, fragPos, viewDir, metallic, roughness);
+        if(uLight[i].enable){
+            if(uLight[i].type == 0u) {
+                result += CalculateDirectionalLight(i, albedo.rgb, normal, metallic, roughness, fragPos, viewDir);
+            } else {
+                result += CalculatePointLight(i, albedo.rgb, normal, metallic, roughness, fragPos, viewDir);
+            }
         }
     }
 
-    oColor = vec4(result, 1.0);
+    oColor = vec4(result, albedo.a);
 }
 #endif
 #endif

@@ -22,7 +22,7 @@ void InitGUI(App* app) {
     app->panelManager.AddPanel(new ScenePanel());
     app->panelManager.AddPanel(new DebugPanel(false));
     app->panelManager.AddPanel(new MaterialsPanel());
-    //app->panelManager.AddPanel(new LightingPanel());
+    app->panelManager.AddPanel(new LightingPanel());
     //app->panelManager.AddPanel(new PostProcessingPanel());
 
 
@@ -56,6 +56,7 @@ void UpdateMainMenu(App* app) {
             if (ImGui::MenuItem("Viewer")) { app->panelManager.TogglePanel("Viewer"); }
             if (ImGui::MenuItem("Scene")) { app->panelManager.TogglePanel("Scene"); }
             if (ImGui::MenuItem("Materials")) { app->panelManager.TogglePanel("Materials"); }
+            if (ImGui::MenuItem("Lighting")) { app->panelManager.TogglePanel("Lighting"); }
 
 			ImGui::EndMenu();
 		}
@@ -262,6 +263,56 @@ void LightingPanel::Update(App* app) {
         2.LIGHT
 
     */
+
+    ImGui::Separator();
+    ImGui::Text("Light");
+    ImGui::Separator();
+    //dropdown selector to select the selected_model from the models list
+    if (ImGui::BeginCombo("Selected Light", app->selectedLight ? app->selectedLight->name.c_str() : "None"))
+    {
+        for (size_t i = 0; i < app->lights.size(); ++i)
+        {
+            bool is_selected = (app->selectedLight == &app->lights[i]);
+            if (ImGui::Selectable(app->lights[i].name.c_str(), is_selected))
+            {
+                app->selectedLight = &app->lights[i];
+            }
+
+            if (is_selected)
+                ImGui::SetItemDefaultFocus();
+        }
+        ImGui::EndCombo();
+    }
+    ImGui::Dummy(ImVec2(0.0f, 20.0f));
+
+    if (app->selectedLight)
+    {
+        Light& light = *app->selectedLight;
+
+        // Type (display only)
+        const char* typeName = (light.type == LightType_Directional) ? "Directional" : "Point";
+        ImGui::Text("Type: %s", typeName);
+
+        ImGui::Checkbox("Light ON/OFF", &light.enabled);
+
+        // Light Color
+        ImGui::ColorEdit3("Color", (float*)&light.color);
+
+        // Intensity
+        ImGui::SliderFloat("Intensity", &light.intensity, 0.0f, 20.0f);
+
+        if (light.type == LightType_Point)
+        {
+            // Point Light specific
+            ImGui::InputFloat3("Position", (float*)&light.position);
+            ImGui::SliderFloat("Range", &light.range, 0.1f, 100.0f);
+        }
+        else if (light.type == LightType_Directional)
+        {
+            // Directional Light specific
+            ImGui::InputFloat3("Direction", (float*)&light.direction);
+        }
+    }
 }
 
 void MaterialsPanel::TextureSelector(App* app, std::string combo_name, Mat_Property* mat_prop) {
@@ -316,7 +367,7 @@ void MaterialsPanel::Update(App* app) {
     ImGui::Text("Material");
     ImGui::Separator();
     //dropdown selector to select the selected_model from the models list
-    if (ImGui::BeginCombo("Select Material", app->selectedMaterial ? app->selectedMaterial->name.c_str() : "None"))
+    if (ImGui::BeginCombo("Selected Material", app->selectedMaterial ? app->selectedMaterial->name.c_str() : "None"))
     {
         for (size_t i = 0; i < app->selectedModel->materials.size(); ++i)
         {
@@ -380,6 +431,15 @@ void MaterialsPanel::Update(App* app) {
     ImGui::Separator();
     ImGui::ColorEdit4("Normal", glm::value_ptr(app->selectedMaterial->normal.color), ImGuiColorEditFlags_NoInputs);
     TextureSelector(app, "N_Texture", &app->selectedMaterial->normal);
+
+    ImGui::Dummy(ImVec2(0.0f, 20.0f));
+    ImGui::Separator();
+    ImGui::Text("Alpha Mask");
+    ImGui::SameLine();
+    ImGui::Checkbox("##AlphaMask", &app->selectedMaterial->alphaMask.prop_enabled);
+    ImGui::Separator();
+    ImGui::ColorEdit4("Alpha Mask", glm::value_ptr(app->selectedMaterial->alphaMask.color), ImGuiColorEditFlags_NoInputs);
+    TextureSelector(app, "AM_Texture", &app->selectedMaterial->alphaMask);
 }
 
 void PostProcessingPanel::Update(App* app) {

@@ -27,13 +27,6 @@ struct Mat_Textures{
     sampler2D alphaMask;
 };
 
-struct Light {
-    uint type;
-    vec3 color;
-    vec3 direction;
-    vec4 position;
-};
-
 #if defined(VERTEX) ///////////////////////////////////////////////////
 
 layout(location=0) in vec3 aPosition;
@@ -111,12 +104,12 @@ void main() {
         height = material.height.use_text ? texture(mat_textures.height, vTexCoord).r : material.height.color.r;
     }
 
-    float alphaMask = 1.0f;
-    if(material.alphaMask.prop_enabled){
-        alphaMask = material.alphaMask.use_text ? texture(mat_textures.alphaMask, vTexCoord).a : material.alphaMask.color.a;
+    if (material.alphaMask.prop_enabled) {
+        float alphaMask = material.alphaMask.use_text ? texture(mat_textures.alphaMask, vTexCoord).a : material.alphaMask.color.a;
+        oAlbedo.a = alphaMask;
     }
 
-    oMatProps = vec4(metallic, roughness, height, alphaMask);
+    oMatProps = vec4(metallic, roughness, height, 1.0);
 }
 #endif
 #endif
