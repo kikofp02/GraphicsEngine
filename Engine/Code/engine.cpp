@@ -105,7 +105,6 @@ void InitUBOs(App* app) {
         reinterpret_cast<GLint*>(&app->globalParamsUBO.alignment)));
 
     size_t cameraPosSize = sizeof(glm::vec4);
-    size_t bgColorSize = sizeof(glm::vec4);
     size_t lightCountSize = sizeof(glm::uvec4);
     size_t lightSize = 4 * sizeof(glm::vec4);
     app->globalParamsUBO.blockSize = cameraPosSize + lightCountSize + app->lights.size() * lightSize;
@@ -623,6 +622,7 @@ void Render(App* app)
     if (app->enableDebugGroups) glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 0, -1, "MainRenderPass");
 
     GL_CHECK(glViewport(0, 0, app->displaySize.x, app->displaySize.y));
+    GL_CHECK(glClearColor(app->bg_color.r, app->bg_color.g, app->bg_color.b, app->bg_color.a));
 
     switch (app->mode)
     {

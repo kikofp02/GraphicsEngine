@@ -100,7 +100,7 @@ struct App
     Light*      selectedLight;
 
     std::shared_ptr<Material> selectedMaterial;
-    glm::vec3 bg_color = glm::vec3(0.f, 0.f, 0.f);
+    glm::vec4 bg_color = glm::vec4(0.f, 0.f, 0.f, 1.0f);
 
     bool rotate_models = true;
 
