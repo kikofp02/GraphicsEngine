@@ -102,7 +102,9 @@ struct App
     std::shared_ptr<Material> selectedMaterial;
     glm::vec4 bg_color = glm::vec4(0.f, 0.f, 0.f, 1.0f);
 
-    bool rotate_models = true;
+    float rotate_speed  = 1.0;
+    bool rotate_models  = true;
+    bool renderAll      = false;
 
     Mode mode;
     DisplayMode displayMode;

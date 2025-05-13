@@ -179,8 +179,37 @@ void UpdateUBOs(App* app) {
 
 #pragma region Initialization
 
-Model GeneratePlaneModel(App* app, float size, int subdivisions, const std::string& texturePath) {
+#pragma region ModelLoaders
+
+void LoadRifleModel(App* app) {
+    
+    Model model("Rifle/Rifle.fbx", app);
+    app->models.push_back(model);
+
+    // Rifle Textures
+    Model::LoadTexture(app, "Rifle/");
+}
+
+void LoadBackPackModel(App* app) {
+    Model model("Backpack/Survival_BackPack_2.fbx", app);
+    app->models.push_back(model);
+
+    // Rifle Textures
+    Model::LoadTexture(app, "Backpack/");
+}
+
+void LoadPatrickModel(App* app) {
+    Model model("Patrick/Patrick.obj", app);
+    app->models.push_back(model);
+
+    // Rifle Textures
+    Model::LoadTexture(app, "Backpack/");
+}
+
+void GeneratePlaneModel(App* app, float size, int subdivisions) {
     Model model;
+    model.name = "Plane";
+
     Mesh planeMesh;
 
     // Generate vertices
@@ -224,15 +253,19 @@ Model GeneratePlaneModel(App* app, float size, int subdivisions, const std::stri
             planeMesh.indices.push_back(bottomRight);
         }
     }
-    auto tex = std::make_shared<Texture>();
-    *tex = Model::TextureFromColor("texture_diffuse");
-    app->textures_loaded.emplace_back(tex);
-    planeMesh.material->diffuse.texture = app->textures_loaded.back();
+
+    model.materials.push_back(std::make_shared<Material>());
+    model.materials.back()->name = "Plane_Material";
+
+    planeMesh.material = model.materials.back();
+
+    planeMesh.SetupMesh();
 
     model.meshes.push_back(planeMesh);
-
-    return model;
+    app->models.push_back(model);
 }
+
+#pragma endregion
 
 void InitTexturedQuad(App* app) {
     // - vertex buffers
@@ -356,9 +389,6 @@ void Init(App* app)
 
     // Camera inizialization
     app->camera = Camera(glm::vec3(0.0f, 20.0f, 30.0f));
-    app->camera.Pitch = -20.;
-    //app->camera.Yaw = -45.;
-    app->camera.UpdateVectors();
 
     GL_CHECK(glEnable(GL_DEPTH_TEST));
     GL_CHECK(glClearColor(0.1f, 0.1f, 0.1f, 1.0f));
@@ -384,43 +414,15 @@ void Init(App* app)
 
 #pragma region Models
 
-    //Model model_1("Backpack/Survival_BackPack_2.fbx", app);
-    Model model_1("Rifle/Rifle.fbx", app);
-    app->models.push_back(model_1);
+    /*GeneratePlaneModel(app, 10, 1);
+    Model::LoadTexture(app, "Bricks/");*/
+    
+    LoadBackPackModel(app);
 
     app->selectedModel = &app->models[0];
     app->selectedMaterial = app->selectedModel->materials[0];
 
-    // Rifle Textures
-    Model::LoadTexture(app, "Rifle/low_Bcg_BaseColor.png");
-    Model::LoadTexture(app, "Rifle/low_Bcg_Metallic.png");
-    Model::LoadTexture(app, "Rifle/low_Bcg_Normal.png");
-    Model::LoadTexture(app, "Rifle/low_Bcg_Roughness.png");
-
-    Model::LoadTexture(app, "Rifle/low_Lower_BaseColor.png");
-    Model::LoadTexture(app, "Rifle/low_Lower_Metallic.png");
-    Model::LoadTexture(app, "Rifle/low_Lower_Normal.png");
-    Model::LoadTexture(app, "Rifle/low_Lower_Roughness.png");
-
-    Model::LoadTexture(app, "Rifle/low_Mag_BaseColor.png");
-    Model::LoadTexture(app, "Rifle/low_Mag_Metallic.png");
-    Model::LoadTexture(app, "Rifle/low_Mag_Normal.png");
-    Model::LoadTexture(app, "Rifle/low_Mag_Roughness.png");
-
-    Model::LoadTexture(app, "Rifle/low_Scope_BaseColor.png");
-    Model::LoadTexture(app, "Rifle/low_Scope_Metallic.png");
-    Model::LoadTexture(app, "Rifle/low_Scope_Normal.png");
-    Model::LoadTexture(app, "Rifle/low_Scope_Roughness.png");
-
-    Model::LoadTexture(app, "Rifle/low_Silencer_BaseColor.png");
-    Model::LoadTexture(app, "Rifle/low_Silencer_Metallic.png");
-    Model::LoadTexture(app, "Rifle/low_Silencer_Normal.png");
-    Model::LoadTexture(app, "Rifle/low_Silencer_Roughness.png");
-
-    Model::LoadTexture(app, "Rifle/low_Upper_BaseColor.png");
-    Model::LoadTexture(app, "Rifle/low_Upper_Metallic.png");
-    Model::LoadTexture(app, "Rifle/low_Upper_Normal.png");
-    Model::LoadTexture(app, "Rifle/low_Upper_Roughness.png");
+    app->camera.SetMode(CAMERA_ORBIT);
 
 #pragma endregion
 
@@ -445,23 +447,6 @@ void Init(App* app)
     point1.range = 40.0f;
     point1.intensity = 15.0;
     app->lights.push_back(point1);
-
-    /*Light dir2;
-    dir2.type = LightType_Directional;
-    dir2.color = glm::vec3(0.5f, 0.6f, 0.8f);
-    dir2.direction = glm::vec3(0.5f, -1.0f, 0.2f);
-    app->lights.push_back(dir2);*/
-
-    /*Light pointLight;
-    pointLight.type = LightType_Point;
-    pointLight.color = glm::vec3(
-        rand() / (float)RAND_MAX * 0.5f + 0.5f,
-        rand() / (float)RAND_MAX * 0.5f + 0.5f,
-        rand() / (float)RAND_MAX * 0.5f + 0.5f
-    );
-    pointLight.position = glm::vec3(lights_startX + x * lights_spacing, 8.f, lights_startZ + z * lights_spacing);
-    pointLight.range = 10.0f;
-    app->lights.push_back(pointLight);*/
 
 #pragma endregion
 
@@ -551,7 +536,7 @@ void Update(App* app)
 
         for (size_t i = 0; i < app->models.size(); ++i)
         {
-            app->models[i].rotation.y = fmod(app->time * 30.0f * (2), 360.0f);
+            app->models[i].rotation.y = fmod(app->time * 30.0f * (app->rotate_speed), 360.0f);
         }
     }
 
@@ -582,6 +567,17 @@ void Update(App* app)
         }
     }
 
+    app->camera.SetOrbitTarget(app->selectedModel->position);
+
+    if (app->input.keys[Key::K_F] == BUTTON_RELEASE) {
+        if (app->camera.Mode == CAMERA_FREE) {
+            app->camera.SetMode(CAMERA_ORBIT);
+        }
+        else {
+            app->camera.SetMode(CAMERA_FREE);
+        }
+    }
+
     // Camera Update
     if (app->input.keys[Key::K_W] == BUTTON_PRESSED)
         app->camera.ProcessKeyboard(M_FORWARD, app->deltaTime);
@@ -603,12 +599,10 @@ void Update(App* app)
         app->camera.ProcessMouseMovement(xoffset, yoffset);
     }
 
-    // TODO_K: Mouse scroll
-    //if (app->input.mouseWheelDelta != 0)
-    //{
-    //    app->camera.ProcessMouseScroll(app->input.mouseWheelDelta);
-    //    app->input.mouseWheelDelta = 0; // Reset after processing
-    //}
+    if (app->input.scrollDelta.y != 0)
+    {
+        app->camera.ProcessMouseScroll(app->input.scrollDelta.y);
+    }
 
 #pragma endregion
 
@@ -639,13 +633,21 @@ void Render(App* app)
 
             GL_CHECK(glBindBufferRange(GL_UNIFORM_BUFFER, 0, app->globalParamsUBO.buffer.handle, 0, app->globalParamsUBO.blockSize));
 
-            for (Model& model : app->models) {
+            if (app->renderAll) {
+                for (Model& model : app->models) {
+                    glBindBufferRange(GL_UNIFORM_BUFFER, 1,
+                        app->transformsUBO.buffer.handle,
+                        model.bufferOffset,
+                        app->transformsUBO.blockSize);
+                    model.Draw(currentShader);
+                }
+            }
+            else {
                 glBindBufferRange(GL_UNIFORM_BUFFER, 1,
                     app->transformsUBO.buffer.handle,
-                    model.bufferOffset,
+                    app->selectedModel->bufferOffset,
                     app->transformsUBO.blockSize);
-
-                model.Draw(currentShader);
+                app->selectedModel->Draw(currentShader);
             }
 
             glDisable(GL_BLEND);
@@ -665,9 +667,22 @@ void Render(App* app)
             geoShader.Use();
 
             glBindBufferRange(GL_UNIFORM_BUFFER, 0, app->globalParamsUBO.buffer.handle, 0, app->globalParamsUBO.blockSize);
-            for (Model& model : app->models) {
-                glBindBufferRange(GL_UNIFORM_BUFFER, 1, app->transformsUBO.buffer.handle, model.bufferOffset, app->transformsUBO.blockSize);
-                model.Draw(geoShader);
+
+            if (app->renderAll) {
+                for (Model& model : app->models) {
+                    glBindBufferRange(GL_UNIFORM_BUFFER, 1,
+                        app->transformsUBO.buffer.handle,
+                        model.bufferOffset,
+                        app->transformsUBO.blockSize);
+                    model.Draw(geoShader);
+                }
+            }
+            else {
+                glBindBufferRange(GL_UNIFORM_BUFFER, 1,
+                    app->transformsUBO.buffer.handle,
+                    app->selectedModel->bufferOffset,
+                    app->transformsUBO.blockSize);
+                app->selectedModel->Draw(geoShader);
             }
 
             // --- Display Pass ---
@@ -719,12 +734,21 @@ void Render(App* app)
             geoShader.Use();
 
             glBindBufferRange(GL_UNIFORM_BUFFER, 0, app->globalParamsUBO.buffer.handle, 0, app->globalParamsUBO.blockSize);
-            for (Model& model : app->models) {
+            if (app->renderAll) {
+                for (Model& model : app->models) {
+                    glBindBufferRange(GL_UNIFORM_BUFFER, 1,
+                        app->transformsUBO.buffer.handle,
+                        model.bufferOffset,
+                        app->transformsUBO.blockSize);
+                    model.Draw(geoShader);
+                }
+            }
+            else {
                 glBindBufferRange(GL_UNIFORM_BUFFER, 1,
                     app->transformsUBO.buffer.handle,
-                    model.bufferOffset,
+                    app->selectedModel->bufferOffset,
                     app->transformsUBO.blockSize);
-                model.Draw(geoShader);
+                app->selectedModel->Draw(geoShader);
             }
 
             // --- Lighting Pass ---
@@ -747,13 +771,13 @@ void Render(App* app)
             glBindTexture(GL_TEXTURE_2D, app->positionTexture);
             lightShader.SetInt("gPosition", 2);
 
-            glBindVertexArray(app->vao);
-            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
-            glEnable(GL_DEPTH_TEST);
-
             glActiveTexture(GL_TEXTURE3);
             glBindTexture(GL_TEXTURE_2D, app->materialPropsTexture);
             lightShader.SetInt("gMatProps", 3);
+
+            glBindVertexArray(app->vao);
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
+            glEnable(GL_DEPTH_TEST);
 
             if (app->enableDebugGroups) glPopDebugGroup();
         }

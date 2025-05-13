@@ -154,6 +154,7 @@ public:
 
     bool LoadTextureToMat(App* app, std::shared_ptr<Texture>& texture, std::string path);
     static bool LoadTexture(App* app, std::string path);
+    static bool LoadSingleTexture(App* app, std::string path);
 
     static float RandomColorRGB() {
         return static_cast<float>(rand() % 101) / 100.0f; // 0 to 1.00, two decimal precision

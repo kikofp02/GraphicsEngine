@@ -224,12 +224,14 @@ bool Model::LoadTextureToMat(App* app, std::shared_ptr<Texture>& texture, std::s
     texture = new_texture;
 }
 
-bool Model::LoadTexture(App* app, std::string path) {
+bool Model::LoadSingleTexture(App* app, std::string fullPath) {
+    
 
-    std::filesystem::path fsPath(path);
+    std::filesystem::path fsPath(fullPath);
     std::string textureName = fsPath.stem().string();
-    std::string fullPath = (fsPath).lexically_normal().string();
+    fullPath = fsPath.lexically_normal().string();
 
+    // Check if texture already loaded
     auto it = std::find_if(app->textures_loaded.begin(), app->textures_loaded.end(),
         [&](const std::shared_ptr<Texture>& t) { return t->path == fullPath; });
 
@@ -237,16 +239,44 @@ bool Model::LoadTexture(App* app, std::string path) {
         return true;
     }
 
+    // Load new texture
     GLuint textureID = TextureFromFile(fullPath.c_str());
     if (textureID == 0) {
         return false;
     }
 
+    // Add to loaded textures
     std::shared_ptr<Texture> new_texture = std::make_shared<Texture>();
     new_texture->id = textureID;
     new_texture->name = textureName;
     new_texture->path = fullPath;
     app->textures_loaded.push_back(new_texture);
+
+    return true;
+}
+
+bool Model::LoadTexture(App* app, std::string path) {
+
+    namespace fs = std::filesystem;
+
+    if (fs::is_directory(path)) {
+        bool anyLoaded = false;
+        for (const auto& entry : fs::directory_iterator(path)) {
+            if (entry.is_regular_file()) {
+                std::string ext = entry.path().extension().string();
+                if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" ||
+                    ext == ".bmp" || ext == ".tga" || ext == ".hdr") {
+                    if (LoadSingleTexture(app, entry.path().string())) {
+                        anyLoaded = true;
+                    }
+                }
+            }
+        }
+        return anyLoaded;
+    }
+    else {
+        return LoadSingleTexture(app, path);
+    }
 }
 
 GLuint Model::TextureFromFile(const char* path) {

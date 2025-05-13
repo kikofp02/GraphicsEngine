@@ -78,6 +78,10 @@ in mat3 vTBN;
 uniform Material material;
 uniform Mat_Textures mat_textures;
 
+// Parallax mapping settings
+uniform float parallaxScale = 0.1;
+const float numLayers = 20.0;
+
 layout(std140, binding = 0) uniform GlobalParams {
     vec3            uCameraPosition;
     uint            uLightCount;
@@ -87,6 +91,43 @@ layout(std140, binding = 0) uniform GlobalParams {
 layout(location = 0) out vec4 oColor;
 
 const float PI = 3.14159265359;
+
+// Parallax Occlusion Mapping
+///////////////////////////////////////////////////////////////////////
+vec2 ParallaxMapping(vec2 texCoords, vec3 viewDir) 
+{
+    float layerDepth = 1.0 / numLayers;
+    float currentLayerDepth = 0.0;
+
+    // the amount to shift the texture coordinates per layer (from vector P)
+    vec2 P = viewDir.xy * parallaxScale; 
+    vec2 deltaTexCoords = P / numLayers;
+    
+    // get initial values
+    vec2 currentTexCoords = texCoords;
+    float currentDepthMapValue = texture(mat_textures.height, currentTexCoords).r;
+    
+    // while the current layer depth is less than the sampled depth value
+    while(currentLayerDepth < currentDepthMapValue)
+    {
+        currentTexCoords -= deltaTexCoords;
+        currentDepthMapValue = texture(mat_textures.height, currentTexCoords).r;
+        currentLayerDepth += layerDepth;
+    }
+    
+    // get texture coordinates before collision (reverse operations)
+    vec2 prevTexCoords = currentTexCoords + deltaTexCoords;
+    
+    // get depth after and before collision for linear interpolation
+    float afterDepth  = currentDepthMapValue - currentLayerDepth;
+    float beforeDepth = texture(mat_textures.height, prevTexCoords).r - currentLayerDepth + layerDepth;
+    
+    // interpolation of texture coordinates
+    float weight = afterDepth / (afterDepth - beforeDepth);
+    vec2 finalTexCoords = prevTexCoords * weight + currentTexCoords * (1.0 - weight);
+    
+    return finalTexCoords;
+}
 
 // PBR Functions
 ///////////////////////////////////////////////////////////////////////
@@ -171,14 +212,26 @@ vec3 CalculatePointLight(uint index, vec3 albedo, vec3 normal, float metallic, f
 
 void main() {
 
+    vec2 texCoords = vTexCoord;
+    if(material.height.prop_enabled && material.height.use_text) {
+        vec3 viewDir = normalize(uCameraPosition - vFragPos);
+        viewDir = normalize(transpose(vTBN) * viewDir);
+        
+        texCoords = ParallaxMapping(vTexCoord, viewDir);
+        
+        // Discard fragments that are sampled outside the texture
+        if(texCoords.x > 1.0 || texCoords.y > 1.0 || texCoords.x < 0.0 || texCoords.y < 0.0)
+            discard;
+    }
+
     // Albedo
-    vec4 texColor = material.diffuse.use_text ? texture(mat_textures.diffuse, vTexCoord) : material.diffuse.color;
+    vec4 texColor = material.diffuse.use_text ? texture(mat_textures.diffuse, texCoords) : material.diffuse.color;
     vec3 albedo = texColor.rgb;
     float alpha = texColor.a;
 
     // Alpha Masking
     if (material.alphaMask.prop_enabled) {
-        vec3 maskRGB = material.alphaMask.use_text ? texture(mat_textures.alphaMask, vTexCoord).rgb : material.alphaMask.color.rgb;
+        vec3 maskRGB = material.alphaMask.use_text ? texture(mat_textures.alphaMask, texCoords).rgb : material.alphaMask.color.rgb;
         float alphaMask = dot(maskRGB, vec3(0.299, 0.587, 0.114));
         alpha = alphaMask;
     }
@@ -186,17 +239,17 @@ void main() {
     // Metallic
     float metallic = 0.0;
     if (material.metallic.prop_enabled) {
-        metallic = material.metallic.use_text ? texture(mat_textures.metallic, vTexCoord).r : material.metallic.color.r;
+        metallic = material.metallic.use_text ? texture(mat_textures.metallic, texCoords).r : material.metallic.color.r;
     }
 
     // Roughness
     float roughness = 0.0;
     if (material.roughness.prop_enabled) {
-        roughness = material.roughness.use_text ? texture(mat_textures.roughness, vTexCoord).r : material.roughness.color.r;
+        roughness = material.roughness.use_text ? texture(mat_textures.roughness, texCoords).r : material.roughness.color.r;
     }
 
     // Normal Mapping
-    vec3 textureNormal = material.normal.use_text ? texture(mat_textures.normal, vTexCoord).xyz * 2.0 - 1.0 : material.normal.color.xyz * 2.0 - 1.0;
+    vec3 textureNormal = material.normal.use_text ? texture(mat_textures.normal, texCoords).xyz * 2.0 - 1.0 : material.normal.color.xyz * 2.0 - 1.0;
     vec3 normal = normalize(vNormal);
     if (material.normal.prop_enabled) {
         normal = normalize(vTBN * textureNormal);

@@ -138,6 +138,7 @@ void main()
 
     float metallic = matProps.r;
     float roughness = matProps.g;
+    float height = matProps.b;
 
     vec3 viewDir = normalize(uCameraPosition - fragPos);
 

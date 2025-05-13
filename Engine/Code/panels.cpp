@@ -194,7 +194,10 @@ void ScenePanel::Update(App* app) {
         ImGui::SliderFloat3("Scale XYZ", glm::value_ptr(app->selectedModel->scale), 0.01f, 5.0f, "%.2f");
     }
     ImGui::Dummy(ImVec2(0.0f, 20.0f));
+    ImGui::Checkbox("Render All", &app->renderAll);
+    ImGui::Dummy(ImVec2(0.0f, 20.0f));
     ImGui::Checkbox("Rotate Models", &app->rotate_models);
+    ImGui::SliderFloat("Rotate Speed", &app->rotate_speed, 0.01f, 5.0f, "%.2f");
 
     ImGui::Separator();
     ImGui::Text("Camera");
@@ -244,6 +247,10 @@ void DebugPanel::Update(App* app) {
 
         ImGui::Text("Pitch: %5.2f", app->camera.Pitch);
         ImGui::Text("Yaw: %5.2f", app->camera.Yaw);
+
+        const char* mode = (app->camera.Mode == CAMERA_FREE) ? "FREE" : "ORBIT";
+        ImGui::Text("Mode: %s", mode);
+
 
         // Models/Lights
         ImGui::Separator();
@@ -402,7 +409,7 @@ void MaterialsPanel::Update(App* app) {
     TextureSelector(app, "D_Texture", &app->selectedMaterial->diffuse);
 
     ImGui::Dummy(ImVec2(0.0f, 10.0f));
-    ImGui::ColorEdit4("Metallic", glm::value_ptr(app->bg_color), ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoPicker);
+    ImGui::ColorEdit4("Metallic", glm::value_ptr(app->selectedMaterial->metallic.color), ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoPicker);
     TextureSelector(app, "M_Texture", &app->selectedMaterial->metallic);
 
     ImGui::Dummy(ImVec2(0.0f, 20.0f));

@@ -53,6 +53,7 @@ enum ButtonState {
 struct Input {
     glm::vec2   mousePos;
     glm::vec2   mouseDelta;
+    glm::vec2   scrollDelta;
     ButtonState mouseButtons[MOUSE_BUTTON_COUNT];
     ButtonState keys[KEY_COUNT];
 };
