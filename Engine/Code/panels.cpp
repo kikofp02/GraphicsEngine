@@ -177,6 +177,7 @@ void ScenePanel::Update(App* app) {
             if (ImGui::Selectable(app->models[i].name.c_str(), is_selected))
             {
                 app->selectedModel = &app->models[i];
+                app->selectedMaterial = app->selectedModel->materials[0];
             }
 
             if (is_selected)
