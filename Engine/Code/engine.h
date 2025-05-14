@@ -28,7 +28,8 @@ enum DisplayMode
     Display_Normals,
     Display_Positions,
     Display_Depth,
-    Display_MatProps
+    Display_MatProps,
+    Display_Bloom
 };
 
 struct OpenGLInfo {
@@ -115,6 +116,7 @@ struct App
     u32 forwardShaderIdx;
     u32 deferredLightingShaderIdx;
     u32 geometryPassShaderIdx;
+    u32 bloomShaderIdx;
 
     //UBOs
     UniformBuffer transformsUBO;
@@ -127,6 +129,7 @@ struct App
     GLuint positionTexture;
     GLuint depthTexture;
     GLuint materialPropsTexture;
+    GLuint bloomTexture;
 
     GLuint embeddedVertices;
     GLuint embeddedElements;

@@ -409,6 +409,9 @@ void Init(App* app)
 
     app->shaders.emplace_back("Shaders/deferred_lighting.glsl", "DEFERRED_LIGHTING");
     app->deferredLightingShaderIdx = app->shaders.size() - 1;
+    
+    app->shaders.emplace_back("Shaders/bloom.glsl", "BLOOM");
+    app->bloomShaderIdx = app->shaders.size() - 1;
 
 #pragma endregion
 
@@ -418,6 +421,8 @@ void Init(App* app)
     Model::LoadTexture(app, "Bricks/");*/
     
     LoadBackPackModel(app);
+    LoadRifleModel(app);
+    LoadPatrickModel(app);
 
     app->selectedModel = &app->models[0];
     app->selectedMaterial = app->selectedModel->materials[0];
@@ -712,6 +717,9 @@ void Render(App* app)
             case Display_MatProps:
                 glBindTexture(GL_TEXTURE_2D, app->materialPropsTexture);
                 break;
+            case Display_Bloom:
+                glBindTexture(GL_TEXTURE_2D, app->bloomTexture);
+                break;
             }
 
             glBindVertexArray(app->vao);
@@ -774,6 +782,18 @@ void Render(App* app)
             glActiveTexture(GL_TEXTURE3);
             glBindTexture(GL_TEXTURE_2D, app->materialPropsTexture);
             lightShader.SetInt("gMatProps", 3);
+
+            // --- Bloom Pass ---
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            glDisable(GL_DEPTH_TEST);
+            glClear(GL_COLOR_BUFFER_BIT);
+
+            Shader& bloomShader = app->shaders[app->bloomShaderIdx];
+            bloomShader.Use();
+
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, app->bloomTexture);
+            bloomShader.SetInt("deferredTxt", 0);
 
             glBindVertexArray(app->vao);
             glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
