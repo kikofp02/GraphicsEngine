@@ -54,6 +54,7 @@
     <ClInclude Include="ThirdParty\stb\stb_image.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="WorkingDir\Shaders\post_process.glsl" />
     <None Include="WorkingDir\Shaders\debug_textures.glsl" />
     <None Include="WorkingDir\Shaders\default_shader.glsl" />
     <None Include="WorkingDir\Shaders\deferred_lighting.glsl" />

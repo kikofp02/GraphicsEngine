@@ -107,6 +107,11 @@ struct App
     bool rotate_models  = true;
     bool renderAll      = false;
 
+    bool bloom          = true;
+    int bloomAmount     = 5;
+    float bloomExposure = 1.0f;
+    float bloomGamma    = 1.0f;
+
     Mode mode;
     DisplayMode displayMode;
 
@@ -116,7 +121,7 @@ struct App
     u32 forwardShaderIdx;
     u32 deferredLightingShaderIdx;
     u32 geometryPassShaderIdx;
-    u32 bloomShaderIdx;
+    u32 postProcessShaderIdx;
 
     //UBOs
     UniformBuffer transformsUBO;
@@ -129,7 +134,13 @@ struct App
     GLuint positionTexture;
     GLuint depthTexture;
     GLuint materialPropsTexture;
-    GLuint bloomTexture;
+
+    GLuint deferredFboHandle;
+    GLuint deferredTexture;
+    GLuint brightnessTexture;
+    
+    GLuint pingPongFboHandle[2];
+    GLuint pingPongTextures[2];
 
     GLuint embeddedVertices;
     GLuint embeddedElements;

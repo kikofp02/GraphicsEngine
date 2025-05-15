@@ -23,7 +23,7 @@ void InitGUI(App* app) {
     app->panelManager.AddPanel(new DebugPanel(false));
     app->panelManager.AddPanel(new MaterialsPanel());
     app->panelManager.AddPanel(new LightingPanel());
-    //app->panelManager.AddPanel(new PostProcessingPanel());
+    app->panelManager.AddPanel(new PostProcessingPanel());
 
 
     // OpenGl info for imgui panel
@@ -46,7 +46,7 @@ void UpdateMainMenu(App* app) {
 		if (ImGui::BeginMenu("General")) {
 
             // TODO_K: K conio pongo?
-            ImGui::Text("ª");
+            ImGui::Text("ï¿½");
 
 			ImGui::EndMenu();
 		}
@@ -57,6 +57,7 @@ void UpdateMainMenu(App* app) {
             if (ImGui::MenuItem("Scene")) { app->panelManager.TogglePanel("Scene"); }
             if (ImGui::MenuItem("Materials")) { app->panelManager.TogglePanel("Materials"); }
             if (ImGui::MenuItem("Lighting")) { app->panelManager.TogglePanel("Lighting"); }
+            if (ImGui::MenuItem("PostProcessing")) { app->panelManager.TogglePanel("PostProcessing"); }
 
 			ImGui::EndMenu();
 		}
@@ -137,7 +138,7 @@ void ViewerPanel::Update(App* app) {
         // Display Mode Selector
         ImGui::Separator();
         if (ImGui::Combo("Buffer View", reinterpret_cast<int*>(&app->displayMode),
-            "Albedo\0Normals\0Positions\0Depth\0MatProps\0"))
+            "Albedo\0Normals\0Positions\0Depth\0MatProps\0Brightness\0"))
         {
             Shader& quadShader = app->shaders[app->debugTexturesShaderIdx];
             quadShader.Use();
@@ -475,4 +476,18 @@ void PostProcessingPanel::Update(App* app) {
         ETC....
 
     */
+
+    ImGui::Separator();
+    ImGui::Text("Bloom");
+    ImGui::Separator();
+
+    ImGui::Text("Bloom Active");
+    ImGui::SameLine();
+    ImGui::Checkbox("##Bloom", &app->bloom);
+    if (app->bloom)
+    {
+        ImGui::SliderInt("Gaussian Amount", &app->bloomAmount, 0, 10);
+        ImGui::DragFloat("Exposure", &app->bloomExposure, 0.1f, 0.0f, 10.0f);
+        ImGui::DragFloat("Gamma", &app->bloomGamma, 0.1f, 0.0f, 10.0f);
+    }
 }
