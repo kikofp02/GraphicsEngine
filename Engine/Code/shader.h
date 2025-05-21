@@ -118,7 +118,8 @@ public:
 
                 ELOG("Reload shader: %s", this->filepath.c_str());
 
-                //TODO_K: taria guapo poner que si no funca el program cargue uno default
+                //TODO_K: It could be nice to load a default one if the other failed
+                // not needed bc if it fails it just does not update it?
                 /*if (!program.handle) {
                     program.handle = CreateProgramFromSource(defaultShaderSource, "DEFAULT");
                 }*/

@@ -25,7 +25,7 @@ const float DEFAULT_SPEED = 15.f;
 const float DEFAULT_SENSITIVITY = 0.1f;
 const float DEFAULT_ZOOM = 45.0f;
 const float DEFAULT_ORBIT_SPEED = 2.5f;
-const float DEFAULT_ORBIT_DISTANCE = 5.0f;
+const float DEFAULT_ORBIT_DISTANCE = 8.0f;
 
 const float Z_NEAR = 1.0f;
 const float Z_FAR = 500.f;

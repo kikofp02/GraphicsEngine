@@ -28,7 +28,11 @@ enum DisplayMode
     Display_Normals,
     Display_Positions,
     Display_Depth,
-    Display_MatProps
+    Display_MatProps,
+    Display_LightPass,
+    Display_Brightness,
+    Display_Blurr
+
 };
 
 struct OpenGLInfo {
@@ -74,9 +78,10 @@ struct Light {
 struct App
 {
     // Core
-    f32  deltaTime;
+    f32 deltaTime;
     f32 time;
     bool isRunning;
+    bool vsyncEnabled = true;
 
     ivec2 displaySize;
 
@@ -102,32 +107,55 @@ struct App
     std::shared_ptr<Material> selectedMaterial;
     glm::vec4 bg_color = glm::vec4(0.f, 0.f, 0.f, 1.0f);
 
-    float rotate_speed  = 1.0;
+    float rotate_speed  = 0.4;
     bool rotate_models  = true;
     bool renderAll      = false;
+
+    float parallax_scale = 0.1;
+    float parallax_layers = 20.0;
+
+    bool bloomEnable          = true;
+    int bloomAmount     = 5;
+    float bloomExposure = 1.0f;
+    float bloomGamma    = 1.0f;
 
     Mode mode;
     DisplayMode displayMode;
 
     // program indices
-    // TODO_K: k mierda, mejor quitar esto y usar los names en shaders
+    // TODO_K: is it better to use shader names than have all this idx?
     u32 debugTexturesShaderIdx;
     u32 forwardShaderIdx;
     u32 deferredLightingShaderIdx;
     u32 geometryPassShaderIdx;
+    u32 bloomPassShaderIdx;
+    u32 compositionShaderIdx;
 
     //UBOs
     UniformBuffer transformsUBO;
     UniformBuffer globalParamsUBO;
 
     // Framebuffer resources
-    GLuint fboHandle;
+    GLuint geometryFboHandle;
     GLuint albedoTexture;
     GLuint normalTexture;
     GLuint positionTexture;
     GLuint depthTexture;
     GLuint materialPropsTexture;
 
+    GLuint sceneFboHandle;
+    GLuint sceneTexture;
+    GLuint brightnessTexture;
+    
+    GLuint pingPongFboHandle[2];
+    GLuint pingPongTextures[2];
+
+    GLuint bloomTexture;
+
+    GLuint compositeFboHandle;
+    GLuint compositeTexture;
+
+    // Main VAO
     GLuint embeddedVertices;
     GLuint embeddedElements;
     GLuint vao;

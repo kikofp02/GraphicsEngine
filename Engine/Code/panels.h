@@ -81,6 +81,16 @@ private:
 
 };
 
+class DocumentationPanel : public GUI_Panel {
+public:
+    DocumentationPanel(bool defaultOpen = false, ImGuiWindowFlags flags = ImGuiWindowFlags_None, const std::string& name = "Documentation") : GUI_Panel(name, defaultOpen, flags) {}
+
+    void Update(App* app) override;
+
+private:
+
+};
+
 class ViewerPanel : public GUI_Panel {
 public:
     ViewerPanel(bool defaultOpen = true, ImGuiWindowFlags flags = ImGuiWindowFlags_None, const std::string& name = "Viewer") : GUI_Panel(name, defaultOpen, flags) {}

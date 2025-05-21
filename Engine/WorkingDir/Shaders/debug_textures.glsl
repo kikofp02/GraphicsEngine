@@ -61,6 +61,20 @@ void main() {
             vec3 matProp = texture(uTexture, vTexCoord).rgb;
             oColor = vec4(matProp, 1.0);
             break;
+
+        case 5: // LightPass
+            oColor = texture(uTexture, vTexCoord);
+            break;
+
+        case 6: // Brightness
+            vec3 brightness = texture(uTexture, vTexCoord).rgb;
+            oColor = vec4(brightness, 1.0);
+            break;
+
+        case 7: // Blurr
+            vec3 blurr = texture(uTexture, vTexCoord).rgb;
+            oColor = vec4(blurr, 1.0);
+            break;
     }
 }
 

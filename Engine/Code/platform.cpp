@@ -176,6 +176,7 @@ int main()
     glfwSetWindowCloseCallback(window, OnGlfwCloseWindow);
 
     glfwMakeContextCurrent(window);
+    glfwSwapInterval(1);
 
     // Load all OpenGL functions using the glfw loader function
     if (!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress))
