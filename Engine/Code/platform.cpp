@@ -8,6 +8,7 @@
 #define VC_EXTRALEAN
 #define WIN32_LEAN_AND_MEAN
 #define _CRT_SECURE_NO_WARNINGS
+#define GLFW_EXPOSE_NATIVE_WIN32
 #include <Windows.h>
 #else
 #include <sys/types.h>
@@ -433,7 +434,9 @@ void LogString(const char* str)
 #ifdef _WIN32
     OutputDebugStringA(str);
     OutputDebugStringA("\n");
-    fprintf(stderr, "%s\n", str);
+    #ifdef _DEBUG  // Only print to console in Debug mode
+        fprintf(stderr, "%s\n", str);
+    #endif
 #else
     fprintf(stderr, "%s\n", str);
 #endif

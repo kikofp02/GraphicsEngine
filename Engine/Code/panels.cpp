@@ -21,11 +21,11 @@ void InitGUI(App* app) {
     app->panelManager.AddPanel(new SystemDetailsPanel(true, flags));
     app->panelManager.AddPanel(new DocumentationPanel(true, flags));
     app->panelManager.AddPanel(new ViewerPanel());
-    app->panelManager.AddPanel(new ScenePanel());
     app->panelManager.AddPanel(new DebugPanel(false));
     app->panelManager.AddPanel(new MaterialsPanel());
     app->panelManager.AddPanel(new LightingPanel());
     app->panelManager.AddPanel(new PostProcessingPanel());
+    app->panelManager.AddPanel(new ScenePanel());
 
 
     // OpenGl info for imgui panel
@@ -178,6 +178,7 @@ void DocumentationPanel::Update(App* app) {
         );
 
         ImGui::Unindent(indentSpacing);
+        ImGui::PopStyleColor();
     }
     else
     {
@@ -203,6 +204,7 @@ void DocumentationPanel::Update(App* app) {
         ImGui::BulletText("2: Cycle through render modes");
         ImGui::BulletText("3: Cycle through debug views");
         ImGui::Unindent(indentSpacing);
+        ImGui::PopStyleColor();
     }
     else
     {
@@ -236,6 +238,7 @@ void DocumentationPanel::Update(App* app) {
         ImGui::BulletText("Bloom: Light bleeding effect");
 
         ImGui::Unindent(indentSpacing);
+        ImGui::PopStyleColor();
     }
     else
     {
@@ -258,6 +261,7 @@ void DocumentationPanel::Update(App* app) {
         ImGui::BulletText("Height maps (parallax oclussion mapping)");
 
         ImGui::Unindent(indentSpacing);
+        ImGui::PopStyleColor();
     }
     else
     {
