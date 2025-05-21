@@ -65,3 +65,10 @@ A real-time 3D renderer built with C++, OpenGL, and ImGui, featuring modern rend
 - Procedural plane
 
 > **Disclaimer**: I do not own the rights to the 3D models used in this project. They were downloaded for free and are used strictly for educational and non-commercial purposes.
+
+---
+
+## 👤 Author
+
+**Francisco Ferrerós Puigmarti**  
+[kikofp02](https://github.com/kikofp02)
